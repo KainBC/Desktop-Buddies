@@ -1,0 +1,122 @@
+import sys
+from pathlib import Path
+
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QApplication
+
+from Src.Connections import NetClient
+from Src.Host import Host
+from Src.User import PlayerIdentity
+from Src.menu import MenuWindow
+from Src.sprite_window import SpriteWindow
+from Src.world import World, Sprite
+
+SPRITES_DIR = Path(__file__).resolve().parent.parent / "Sprites"
+FLOOR_FRACTION = 0.9          # baseline y for sprites
+SEND_INTERVAL = 0.1           # seconds between own-state broadcasts
+
+
+class AppController:
+    def __init__(self, relay_url: str):
+        self.relay_url = relay_url
+        self.identity: PlayerIdentity | None = None
+        self.host = Host()
+        self.world: World | None = None
+        self.windows: dict[str, SpriteWindow] = {}   # sprite id -> window
+        self._send_accum = 0.0
+
+        self.net = NetClient()
+        self.menu = MenuWindow()
+        self.menu.create_requested.connect(self._on_create)
+        self.menu.join_requested.connect(self._on_join)
+        self.net.room_created.connect(self._on_room_created)
+        self.net.room_joined.connect(self._on_room_joined)
+        self.net.member_joined.connect(self._on_member_joined)
+        self.net.member_left.connect(self._on_member_left)
+        self.net.remote_state.connect(self._on_remote_state)
+        self.net.error_occurred.connect(self.menu.show_error)
+
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._tick)
+
+    # ---- menu actions ----
+    def _on_create(self, name, character):
+        self.identity = PlayerIdentity(name, character)
+        self.net.start_create(self.relay_url, name, character)
+
+    def _on_join(self, code, name, character):
+        self.identity = PlayerIdentity(name, character)
+        self.net.start_join(self.relay_url, code, name, character)
+
+    # ---- network events ----
+    def _on_room_created(self, code, your_id):
+        self.host.remember(code, your_id)
+        self.menu.show_code(code)
+        self._begin_world(your_id)
+
+    def _on_room_joined(self, your_id, members):
+        self.host.remember(None, your_id)
+        self._begin_world(your_id)
+        for mem in members:
+            self._add_remote(mem["id"], mem["name"], mem["character"])
+        self.menu.hide()
+
+    def _on_member_joined(self, mem):
+        if self.world:
+            self._add_remote(mem["id"], mem["name"], mem["character"])
+
+    def _on_member_left(self, mid):
+        if self.world:
+            self.world.remove_member(mid)
+        w = self.windows.pop(mid, None)
+        if w:
+            w.close()
+
+    def _on_remote_state(self, msg):
+        if self.world:
+            self.world.apply_state(msg["id"], msg["x"], msg["y"],
+                                   msg["facing"], msg["anim"])
+
+    # ---- world/render setup ----
+    def _begin_world(self, your_id):
+        own = Sprite(id=your_id, name=self.identity.name,
+                     character=self.identity.character, y=FLOOR_FRACTION,
+                     target_y=FLOOR_FRACTION)
+        self.world = World(own)
+        self.windows[your_id] = SpriteWindow(self.identity.character, SPRITES_DIR)
+        self.timer.start(16)   # ~60 fps
+
+    def _add_remote(self, mid, name, character):
+        self.world.add_member(mid, name, character)
+        self.windows[mid] = SpriteWindow(character, SPRITES_DIR)
+
+    # ---- main loop ----
+    def _tick(self):
+        if not self.world:
+            return
+        dt = 0.016
+        changed = self.world.tick(dt)
+
+        screen = QGuiApplication.primaryScreen().geometry()
+        for sp in self.world.all_sprites():
+            win = self.windows.get(sp.id)
+            if not win:
+                continue
+            px = int(sp.x * (screen.width() - win.width()))
+            py = int(sp.y * (screen.height() - win.height()))
+            win.set_position(px, py)
+            win.set_facing(sp.facing)
+            win.set_animation(sp.anim)
+            win.tick(dt)
+
+        self._send_accum += dt
+        if changed and self._send_accum >= SEND_INTERVAL:
+            self._send_accum = 0.0
+            own = self.world.own
+            self.net.send_state(own.id, own.x, own.y, own.facing, own.anim)
+
+    def run(self) -> int:
+        app = QApplication.instance() or QApplication(sys.argv)
+        self.menu.show()
+        return app.exec()
