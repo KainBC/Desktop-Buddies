@@ -19,6 +19,8 @@ SEND_INTERVAL = 0.1           # seconds between own-state broadcasts
 
 class AppController:
     def __init__(self, relay_url: str):
+        self.app = QApplication.instance() or QApplication(sys.argv)
+
         self.relay_url = relay_url
         self.identity: PlayerIdentity | None = None
         self.host = Host()
@@ -80,6 +82,8 @@ class AppController:
 
     # ---- world/render setup ----
     def _begin_world(self, your_id):
+        if self.world is not None:
+            return
         own = Sprite(id=your_id, name=self.identity.name,
                      character=self.identity.character, y=FLOOR_FRACTION,
                      target_y=FLOOR_FRACTION)
@@ -117,6 +121,5 @@ class AppController:
             self.net.send_state(own.id, own.x, own.y, own.facing, own.anim)
 
     def run(self) -> int:
-        app = QApplication.instance() or QApplication(sys.argv)
         self.menu.show()
-        return app.exec()
+        return self.app.exec()
