@@ -641,9 +641,10 @@ def test_own_controller_reaches_target_and_returns_to_idle():
 def test_own_controller_faces_direction_of_travel():
     s = Sprite(id="me", name="Kain", character="cat", x=0.5, y=0.9)
     ctrl = OwnController(s, rng=random.Random(1))
-    ctrl.update(10.0)
-    ctrl.update(0.1)
-    assert s.facing == (1 if s.target_x > s.x else -1) or s.facing in (1, -1)
+    ctrl.update(10.0)                       # -> WALK, target chosen from x=0.5
+    expected = 1 if s.target_x >= 0.5 else -1
+    ctrl.update(0.1)                        # take a step toward the target
+    assert s.facing == expected
 
 
 def test_world_add_apply_and_lerp_remote():
