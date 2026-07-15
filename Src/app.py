@@ -17,6 +17,13 @@ FLOOR_FRACTION = 0.9          # baseline y for sprites
 SEND_INTERVAL = 0.1           # seconds between own-state broadcasts
 
 
+def should_broadcast(changed: bool, accum: float, interval: float, anim_changed: bool) -> bool:
+    """Broadcast own state when something changed AND either the throttle
+    interval elapsed or the animation just changed (so idle/walk transitions
+    are never dropped by the throttle)."""
+    return changed and (accum >= interval or anim_changed)
+
+
 class AppController:
     def __init__(self, relay_url: str):
         self.app = QApplication.instance() or QApplication(sys.argv)
@@ -27,6 +34,7 @@ class AppController:
         self.world: World | None = None
         self.windows: dict[str, SpriteWindow] = {}   # sprite id -> window
         self._send_accum = 0.0
+        self._last_sent_anim: str | None = None
 
         self.net = NetClient()
         self.menu = MenuWindow()
@@ -38,6 +46,7 @@ class AppController:
         self.net.member_left.connect(self._on_member_left)
         self.net.remote_state.connect(self._on_remote_state)
         self.net.error_occurred.connect(self.menu.show_error)
+        self.net.disconnected.connect(self._on_disconnected)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self._tick)
@@ -80,6 +89,17 @@ class AppController:
             self.world.apply_state(msg["id"], msg["x"], msg["y"],
                                    msg["facing"], msg["anim"])
 
+    def _on_disconnected(self):
+        self.timer.stop()
+        for w in self.windows.values():
+            w.close()
+        self.windows.clear()
+        self.world = None
+        self._last_sent_anim = None
+        self._send_accum = 0.0
+        self.menu.show()
+        self.menu.show_error("Disconnected from relay.")
+
     # ---- world/render setup ----
     def _begin_world(self, your_id):
         if self.world is not None:
@@ -115,9 +135,11 @@ class AppController:
             win.tick(dt)
 
         self._send_accum += dt
-        if changed and self._send_accum >= SEND_INTERVAL:
+        own = self.world.own
+        anim_changed = own.anim != self._last_sent_anim
+        if should_broadcast(changed, self._send_accum, SEND_INTERVAL, anim_changed):
             self._send_accum = 0.0
-            own = self.world.own
+            self._last_sent_anim = own.anim
             self.net.send_state(own.id, own.x, own.y, own.facing, own.anim)
 
     def run(self) -> int:

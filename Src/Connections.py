@@ -44,6 +44,8 @@ class NetClient(QObject):
 
     # ---- internals ----
     def _start(self, url: str) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
         self._thread = threading.Thread(target=self._run, args=(url,), daemon=True)
         self._thread.start()
 
