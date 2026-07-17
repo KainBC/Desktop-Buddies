@@ -43,6 +43,9 @@ class SpriteWindow(QWidget):
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
+        # macOS hides Qt.Tool windows whenever the app is not frontmost;
+        # this keeps the sprite on screen even when another app has focus.
+        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
 
         cfg = json.loads((Path(sprites_dir) / character / "sprite.json").read_text())
         self._fps = cfg.get("fps", 6)

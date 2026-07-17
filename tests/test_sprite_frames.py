@@ -1,3 +1,8 @@
+import os
+from pathlib import Path
+
+import pytest
+
 from Src.sprite_window import FrameCycler
 
 
@@ -24,3 +29,24 @@ def test_cycler_reset():
     c.advance(0.3)
     c.reset()
     assert c.advance(0.0) == 0
+
+
+SPRITES_DIR = Path(__file__).resolve().parent.parent / "Sprites"
+
+
+def test_sprite_window_stays_visible_when_app_inactive():
+    """On macOS a Qt.Tool window is hidden whenever the app is not frontmost.
+    WA_MacAlwaysShowToolWindow keeps the sprite on screen regardless."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication.instance() or QApplication([])
+    from Src.sprite_window import SpriteWindow
+
+    win = SpriteWindow("placeholder_cat", SPRITES_DIR)
+    try:
+        assert win.testAttribute(Qt.WA_MacAlwaysShowToolWindow)
+    finally:
+        win.close()
+        win.deleteLater()
