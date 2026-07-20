@@ -13,8 +13,8 @@
 #
 # Notes:
 #   - Uses python3, not python (Homebrew/macOS python3 is 3.11+).
-#   - BUDDIES_NO_HOTKEY=1 is forced for clients on macOS to avoid the pynput
-#     global-hotkey SIGTRAP crash; chat still works by clicking your sprite.
+#   - The ⌘⇧B / Ctrl+Shift+B global hotkey is on by default; export
+#     BUDDIES_NO_HOTKEY=1 to opt out (clicking a sprite also opens chat).
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -38,13 +38,10 @@ case "$cmd" in
     exec env BUDDIES_HOST="$BUDDIES_HOST" "$PYTHON" -m relay
     ;;
   client)
-    no_hotkey="${BUDDIES_NO_HOTKEY:-}"
-    if [ -z "$no_hotkey" ] && [ "$(uname -s)" = "Darwin" ]; then
-      no_hotkey=1   # avoid the macOS pynput hotkey crash by default
-    fi
-    echo "Starting client -> $BUDDIES_URL (hotkey disabled: ${no_hotkey:-0})"
-    exec env BUDDIES_URL="$BUDDIES_URL" BUDDIES_NO_HOTKEY="${no_hotkey:-0}" \
-      "$PYTHON" -m Src
+    # The global hotkey works on macOS (native Carbon) and Linux (pynput).
+    # Set BUDDIES_NO_HOTKEY=1 yourself to opt out; we no longer force it.
+    echo "Starting client -> $BUDDIES_URL (hotkey disabled: ${BUDDIES_NO_HOTKEY:-0})"
+    exec env BUDDIES_URL="$BUDDIES_URL" "$PYTHON" -m Src
     ;;
   ""|-h|--help|help)
     usage 0

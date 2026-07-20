@@ -35,3 +35,25 @@ def test_stop_before_start_is_noop():
     _app()
     hk = GlobalHotkey()
     hk.stop()                    # must not raise
+
+
+def test_parse_combo_reads_modifiers_and_key():
+    from Src._hotkey_darwin import (
+        parse_combo, _CMD, _SHIFT, _CONTROL)
+
+    keycode, mods = parse_combo("<cmd>+<shift>+b")
+    assert keycode == 11                       # kVK_ANSI_B
+    assert mods == _CMD | _SHIFT
+
+    keycode, mods = parse_combo("<ctrl>+<shift>+b")
+    assert keycode == 11
+    assert mods == _CONTROL | _SHIFT
+
+
+def test_parse_combo_rejects_bad_input():
+    from Src._hotkey_darwin import parse_combo
+
+    assert parse_combo("not-a-real-combo!!") is None   # unknown token
+    assert parse_combo("<cmd>+<shift>") is None        # no non-modifier key
+    assert parse_combo("<cmd>+a+b") is None            # two non-modifier keys
+    assert parse_combo("") is None
