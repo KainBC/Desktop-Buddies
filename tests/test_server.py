@@ -58,3 +58,19 @@ async def test_disconnect_sends_member_left(server):
         await _recv(host)  # member_joined
         await guest.close()
         assert await _recv(host) == {"type": m.MEMBER_LEFT, "id": left_id}
+
+
+async def test_relay_forwards_chat(server):
+    url = f"ws://localhost:{server}"
+    async with websockets.connect(url) as host, websockets.connect(url) as guest:
+        await host.send(m.encode(m.CREATE_ROOM, name="Kain", character="cat"))
+        created = await _recv(host)
+        host_id = created["your_id"]
+        await guest.send(m.encode(m.JOIN_ROOM, code=created["code"],
+                                  name="Sam", character="dog"))
+        await _recv(guest)   # room_joined
+        await _recv(host)    # member_joined
+
+        raw = m.encode(m.CHAT, id=host_id, text="hi there")
+        await host.send(raw)
+        assert await _recv(guest) == m.decode(raw)

@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -8,6 +9,10 @@ from PySide6.QtWidgets import QApplication
 from Src.Connections import NetClient
 from Src.Host import Host
 from Src.User import PlayerIdentity
+from Src.bubble import BubbleWindow
+from Src.chat import bubble_position
+from Src.chat_input import ChatInputWindow
+from Src.hotkey import GlobalHotkey
 from Src.menu import MenuWindow
 from Src.sprite_window import SpriteWindow
 from Src.world import World, Sprite
@@ -33,6 +38,8 @@ class AppController:
         self.host = Host()
         self.world: World | None = None
         self.windows: dict[str, SpriteWindow] = {}   # sprite id -> window
+        self.bubbles: dict[str, BubbleWindow] = {}   # sprite id -> bubble
+        self._hotkey_attempted = False
         self._send_accum = 0.0
         self._last_sent_anim: str | None = None
 
@@ -47,6 +54,12 @@ class AppController:
         self.net.remote_state.connect(self._on_remote_state)
         self.net.error_occurred.connect(self.menu.show_error)
         self.net.disconnected.connect(self._on_disconnected)
+        self.net.chat_received.connect(self._on_chat)
+
+        self.chat_input = ChatInputWindow()
+        self.chat_input.submitted.connect(self._on_chat_submit)
+        self.hotkey = GlobalHotkey()
+        self.hotkey.activated.connect(self._open_composer_for_own)
 
         self.timer = QTimer()
         self.timer.timeout.connect(self._tick)
@@ -83,6 +96,9 @@ class AppController:
         w = self.windows.pop(mid, None)
         if w:
             w.close()
+        b = self.bubbles.pop(mid, None)
+        if b:
+            b.close()
 
     def _on_remote_state(self, msg):
         if self.world:
@@ -94,6 +110,9 @@ class AppController:
         for w in self.windows.values():
             w.close()
         self.windows.clear()
+        for b in self.bubbles.values():
+            b.close()
+        self.bubbles.clear()
         self.world = None
         self._last_sent_anim = None
         self._send_accum = 0.0
@@ -109,11 +128,43 @@ class AppController:
                      target_y=FLOOR_FRACTION)
         self.world = World(own)
         self.windows[your_id] = SpriteWindow(self.identity.character, SPRITES_DIR)
+        self.windows[your_id].clicked.connect(self._open_composer_for_own)
+        if not self._hotkey_attempted and os.environ.get("BUDDIES_NO_HOTKEY") != "1":
+            self._hotkey_attempted = True
+            self.hotkey.start()   # False if the OS denied it; click still works
         self.timer.start(16)   # ~60 fps
 
     def _add_remote(self, mid, name, character):
         self.world.add_member(mid, name, character)
         self.windows[mid] = SpriteWindow(character, SPRITES_DIR)
+
+    # ---- chat ----
+    def _open_composer_for_own(self):
+        if not self.world:
+            return
+        win = self.windows.get(self.world.own.id)
+        if win is None:
+            return
+        self.chat_input.open_at(win.x(), win.y() - 36)
+
+    def _on_chat_submit(self, text):
+        if not self.world:
+            return
+        own = self.world.own
+        self.net.send_chat(own.id, text)
+        self._show_bubble(own.id, text)      # local echo
+
+    def _on_chat(self, msg):
+        self._show_bubble(msg["id"], msg["text"])
+
+    def _show_bubble(self, sid, text):
+        if sid not in self.windows:
+            return
+        bub = self.bubbles.get(sid)
+        if bub is None:
+            bub = BubbleWindow()
+            self.bubbles[sid] = bub
+        bub.set_text(text)
 
     # ---- main loop ----
     def _tick(self):
@@ -133,6 +184,18 @@ class AppController:
             win.set_facing(sp.facing)
             win.set_animation(sp.anim)
             win.tick(dt)
+
+        for sid, bub in list(self.bubbles.items()):
+            bub.tick(dt)
+            win = self.windows.get(sid)
+            if bub.done or win is None:
+                bub.close()
+                del self.bubbles[sid]
+                continue
+            bx, by = bubble_position(win.x(), win.y(), win.width(),
+                                     bub.width(), bub.height(), screen.width())
+            bub.move(bx, by)
+            bub.show()
 
         self._send_accum += dt
         own = self.world.own
