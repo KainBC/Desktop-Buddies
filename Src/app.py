@@ -194,6 +194,7 @@ class AppController:
             bx, by = bubble_position(win.x(), win.y(), win.width(),
                                      bub.width(), bub.height(), screen.width())
             bub.move(bx, by)
+            bub.show()
 
         self._send_accum += dt
         own = self.world.own

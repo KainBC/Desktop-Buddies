@@ -19,9 +19,7 @@ class BubbleWindow(QWidget):
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
         self._font = QFont()
         self._text = ""
-        self._text_rect = None
         self._life = BubbleLifetime(hold, fade)
-        self.show()
 
     def set_text(self, text: str) -> None:
         self._text = text
@@ -34,7 +32,6 @@ class BubbleWindow(QWidget):
         fm = QFontMetrics(self._font)
         rect = fm.boundingRect(0, 0, MAX_WIDTH, 10_000,
                                Qt.TextWordWrap, self._text)
-        self._text_rect = rect
         self.resize(rect.width() + 2 * PAD_X, rect.height() + 2 * PAD_Y)
 
     def tick(self, dt: float) -> None:
