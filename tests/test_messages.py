@@ -14,8 +14,13 @@ def test_decode_rejects_malformed():
     assert m.decode('{"no": "type"}') is None  # missing type
 
 
+def test_chat_roundtrips_through_decode():
+    raw = m.encode(m.CHAT, id="7", text="hello world")
+    assert m.decode(raw) == {"type": "chat", "id": "7", "text": "hello world"}
+
+
 def test_constants_are_distinct_strings():
     values = [m.CREATE_ROOM, m.ROOM_CREATED, m.JOIN_ROOM, m.ROOM_JOINED,
-              m.ERROR, m.MEMBER_JOINED, m.MEMBER_LEFT, m.STATE]
+              m.ERROR, m.MEMBER_JOINED, m.MEMBER_LEFT, m.STATE, m.CHAT]
     assert all(isinstance(v, str) for v in values)
     assert len(set(values)) == len(values)
