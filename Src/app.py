@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -128,7 +129,7 @@ class AppController:
         self.world = World(own)
         self.windows[your_id] = SpriteWindow(self.identity.character, SPRITES_DIR)
         self.windows[your_id].clicked.connect(self._open_composer_for_own)
-        if not self._hotkey_attempted:
+        if not self._hotkey_attempted and os.environ.get("BUDDIES_NO_HOTKEY") != "1":
             self._hotkey_attempted = True
             self.hotkey.start()   # False if the OS denied it; click still works
         self.timer.start(16)   # ~60 fps
