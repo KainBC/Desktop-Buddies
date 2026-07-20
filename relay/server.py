@@ -35,7 +35,7 @@ def make_handler(registry: Registry):
                     else:
                         code, member_id = msg["code"], mid
 
-                elif mtype == m.STATE and member_id is not None:
+                elif mtype in (m.STATE, m.CHAT) and member_id is not None:
                     await registry.relay(code, member_id, raw)
         finally:
             if code is not None and member_id is not None:
