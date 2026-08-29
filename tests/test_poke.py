@@ -1,4 +1,4 @@
-from Src.poke import Hop
+from Src.poke import Hop, PokeCooldown
 
 
 def test_hop_starts_on_the_ground():
@@ -67,3 +67,36 @@ def test_default_height_is_a_small_screen_fraction():
     """Offsets are fractions of screen height, like Sprite.x/y."""
     hop = Hop()
     assert 0.0 < hop.height <= 0.1
+
+
+# --- PokeCooldown ---
+
+def test_cooldown_allows_the_first_poke():
+    cd = PokeCooldown(seconds=1.0)
+    assert cd.try_send("them", now=100.0)
+
+
+def test_cooldown_denies_a_repeat_within_the_window():
+    cd = PokeCooldown(seconds=1.0)
+    cd.try_send("them", now=100.0)
+    assert not cd.try_send("them", now=100.5)
+
+
+def test_cooldown_allows_again_after_the_window():
+    cd = PokeCooldown(seconds=1.0)
+    cd.try_send("them", now=100.0)
+    assert cd.try_send("them", now=101.0)
+
+
+def test_cooldown_is_independent_per_target():
+    cd = PokeCooldown(seconds=1.0)
+    cd.try_send("them", now=100.0)
+    assert cd.try_send("someone_else", now=100.1)
+
+
+def test_cooldown_denial_does_not_extend_the_window():
+    """A blocked attempt must not reset the clock, or spam would lock forever."""
+    cd = PokeCooldown(seconds=1.0)
+    cd.try_send("them", now=100.0)
+    cd.try_send("them", now=100.9)      # denied
+    assert cd.try_send("them", now=101.0)

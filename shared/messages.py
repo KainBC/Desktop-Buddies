@@ -9,6 +9,7 @@ MEMBER_JOINED = "member_joined"
 MEMBER_LEFT = "member_left"
 STATE = "state"
 CHAT = "chat"
+POKE = "poke"
 
 
 def encode(msg_type: str, **fields) -> str:

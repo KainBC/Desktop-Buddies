@@ -1,6 +1,8 @@
 import random
 from dataclasses import dataclass
 
+from Src.poke import Hop
+
 IDLE = "idle"
 WALK = "walk"
 
@@ -63,12 +65,31 @@ class World:
         self.own = own
         self.controller = OwnController(own)
         self.remotes: dict[str, Sprite] = {}
+        self.hops: dict[str, Hop] = {}
 
     def add_member(self, id: str, name: str, character: str) -> None:
         self.remotes[id] = Sprite(id=id, name=name, character=character)
 
     def remove_member(self, id: str) -> None:
         self.remotes.pop(id, None)
+        self.hops.pop(id, None)
+
+    def _sprite(self, id: str) -> Sprite | None:
+        return self.own if id == self.own.id else self.remotes.get(id)
+
+    def poke(self, target_id: str) -> None:
+        """Start (or restart) a hop on a known sprite; ignore unknown ids."""
+        if self._sprite(target_id) is None:
+            return
+        hop = self.hops.get(target_id)
+        if hop is None:
+            self.hops[target_id] = Hop()
+        else:
+            hop.reset()
+
+    def hop_offset(self, id: str) -> float:
+        hop = self.hops.get(id)
+        return hop.offset() if hop is not None else 0.0
 
     def apply_state(self, id: str, x: float, y: float, facing: int, anim: str) -> None:
         s = self.remotes.get(id)
@@ -82,6 +103,10 @@ class World:
         for s in self.remotes.values():
             s.x += (s.target_x - s.x) * alpha
             s.y += (s.target_y - s.y) * alpha
+        for hid, hop in list(self.hops.items()):
+            hop.advance(dt)
+            if hop.done:
+                del self.hops[hid]
         return changed
 
     def all_sprites(self) -> list[Sprite]:

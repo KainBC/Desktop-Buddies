@@ -74,3 +74,19 @@ async def test_relay_forwards_chat(server):
         raw = m.encode(m.CHAT, id=host_id, text="hi there")
         await host.send(raw)
         assert await _recv(guest) == m.decode(raw)
+
+
+async def test_relay_forwards_poke(server):
+    url = f"ws://localhost:{server}"
+    async with websockets.connect(url) as host, websockets.connect(url) as guest:
+        await host.send(m.encode(m.CREATE_ROOM, name="Kain", character="cat"))
+        created = await _recv(host)
+        await guest.send(m.encode(m.JOIN_ROOM, code=created["code"],
+                                  name="Sam", character="dog"))
+        guest_id = (await _recv(guest))["your_id"]
+        await _recv(host)    # member_joined
+
+        raw = m.encode(m.POKE, id=created["your_id"], target_id=guest_id)
+        await host.send(raw)
+        assert await _recv(guest) == m.decode(raw)
+

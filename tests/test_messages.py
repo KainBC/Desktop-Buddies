@@ -24,3 +24,14 @@ def test_constants_are_distinct_strings():
               m.ERROR, m.MEMBER_JOINED, m.MEMBER_LEFT, m.STATE, m.CHAT]
     assert all(isinstance(v, str) for v in values)
     assert len(set(values)) == len(values)
+
+
+def test_poke_roundtrips_through_decode():
+    raw = m.encode(m.POKE, id="7", target_id="3")
+    assert m.decode(raw) == {"type": "poke", "id": "7", "target_id": "3"}
+
+
+def test_poke_constant_is_distinct():
+    values = [m.CREATE_ROOM, m.ROOM_CREATED, m.JOIN_ROOM, m.ROOM_JOINED,
+              m.ERROR, m.MEMBER_JOINED, m.MEMBER_LEFT, m.STATE, m.CHAT, m.POKE]
+    assert len(set(values)) == len(values)

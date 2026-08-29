@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
@@ -14,6 +15,7 @@ from Src.chat import bubble_position
 from Src.chat_input import ChatInputWindow
 from Src.hotkey import GlobalHotkey
 from Src.menu import MenuWindow
+from Src.poke import PokeCooldown
 from Src.sprite_window import SpriteWindow
 from Src.world import World, Sprite
 
@@ -40,6 +42,7 @@ class AppController:
         self.windows: dict[str, SpriteWindow] = {}   # sprite id -> window
         self.bubbles: dict[str, BubbleWindow] = {}   # sprite id -> bubble
         self._hotkey_attempted = False
+        self.poke_cooldown = PokeCooldown()
         self._send_accum = 0.0
         self._last_sent_anim: str | None = None
 
@@ -55,6 +58,7 @@ class AppController:
         self.net.error_occurred.connect(self.menu.show_error)
         self.net.disconnected.connect(self._on_disconnected)
         self.net.chat_received.connect(self._on_chat)
+        self.net.poke_received.connect(self._on_poke_received)
 
         self.chat_input = ChatInputWindow()
         self.chat_input.submitted.connect(self._on_chat_submit)
@@ -114,6 +118,7 @@ class AppController:
             b.close()
         self.bubbles.clear()
         self.world = None
+        self.poke_cooldown = PokeCooldown()   # ids are reissued on reconnect
         self._last_sent_anim = None
         self._send_accum = 0.0
         self.menu.show()
@@ -136,7 +141,10 @@ class AppController:
 
     def _add_remote(self, mid, name, character):
         self.world.add_member(mid, name, character)
-        self.windows[mid] = SpriteWindow(character, SPRITES_DIR)
+        win = SpriteWindow(character, SPRITES_DIR)
+        # default-arg capture: a bare closure would read the final mid
+        win.clicked.connect(lambda mid=mid: self._on_poke_clicked(mid))
+        self.windows[mid] = win
 
     # ---- chat ----
     def _open_composer_for_own(self):
@@ -156,6 +164,20 @@ class AppController:
 
     def _on_chat(self, msg):
         self._show_bubble(msg["id"], msg["text"])
+
+    # ---- pokes ----
+    def _on_poke_clicked(self, target_id):
+        if not self.world:
+            return
+        if not self.poke_cooldown.try_send(target_id, time.monotonic()):
+            return
+        self.net.send_poke(self.world.own.id, target_id)
+        # local echo: the relay never sends a message back to its sender
+        self.world.poke(target_id)
+
+    def _on_poke_received(self, msg):
+        if self.world:
+            self.world.poke(msg["target_id"])
 
     def _show_bubble(self, sid, text):
         if sid not in self.windows:
@@ -179,7 +201,8 @@ class AppController:
             if not win:
                 continue
             px = int(sp.x * (screen.width() - win.width()))
-            py = int(sp.y * (screen.height() - win.height()))
+            hop = self.world.hop_offset(sp.id)
+            py = int((sp.y - hop) * (screen.height() - win.height()))
             win.set_position(px, py)
             win.set_facing(sp.facing)
             win.set_animation(sp.anim)

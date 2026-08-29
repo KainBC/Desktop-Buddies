@@ -18,3 +18,12 @@ def test_dispatch_chat_emits_signal():
     nc.chat_received.connect(got.append)
     nc._dispatch({"type": "chat", "id": "3", "text": "hi"})
     assert got == [{"type": "chat", "id": "3", "text": "hi"}]
+
+
+def test_dispatch_poke_emits_signal():
+    _app()
+    nc = NetClient()
+    got = []
+    nc.poke_received.connect(got.append)
+    nc._dispatch({"type": "poke", "id": "3", "target_id": "7"})
+    assert got == [{"type": "poke", "id": "3", "target_id": "7"}]

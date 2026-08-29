@@ -17,6 +17,7 @@ class NetClient(QObject):
     member_left = Signal(str)
     remote_state = Signal(dict)
     chat_received = Signal(dict)
+    poke_received = Signal(dict)
 
     def __init__(self):
         super().__init__()
@@ -40,6 +41,10 @@ class NetClient(QObject):
 
     def send_chat(self, id: str, text: str) -> None:
         raw = m.encode(m.CHAT, id=id, text=text)
+        self._submit(raw)
+
+    def send_poke(self, id: str, target_id: str) -> None:
+        raw = m.encode(m.POKE, id=id, target_id=target_id)
         self._submit(raw)
 
     def stop(self) -> None:
@@ -93,5 +98,7 @@ class NetClient(QObject):
             self.remote_state.emit(msg)
         elif t == m.CHAT:
             self.chat_received.emit(msg)
+        elif t == m.POKE:
+            self.poke_received.emit(msg)
         elif t == m.ERROR:
             self.error_occurred.emit(msg.get("reason", "error"))
