@@ -2,6 +2,7 @@ import asyncio
 import os
 
 import websockets
+from websockets.exceptions import ConnectionClosed
 
 from relay.room import Registry
 from shared import messages as m
@@ -37,6 +38,8 @@ def make_handler(registry: Registry):
 
                 elif mtype in (m.STATE, m.CHAT, m.POKE) and member_id is not None:
                     await registry.relay(code, member_id, raw)
+        except ConnectionClosed:
+            pass   # a peer that vanished without a handshake is normal
         finally:
             if code is not None and member_id is not None:
                 await registry.leave(code, member_id)

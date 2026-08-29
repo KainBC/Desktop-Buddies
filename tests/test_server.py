@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 import websockets
+from websockets.exceptions import ConnectionClosedError
 
 from relay.room import Registry
 from relay.server import make_handler
@@ -90,3 +91,28 @@ async def test_relay_forwards_poke(server):
         await host.send(raw)
         assert await _recv(guest) == m.decode(raw)
 
+
+async def test_abrupt_disconnect_cleans_up_without_raising():
+    """A client that vanishes without a close handshake is normal, not a crash.
+
+    The handler must swallow ConnectionClosed so websockets does not log it as
+    'connection handler failed', while still leaving the room."""
+    registry = Registry()
+    handler = make_handler(registry)
+
+    class VanishingSocket:
+        """Delivers one create_room, then dies mid-stream."""
+
+        def __init__(self):
+            self.sent = []
+
+        async def send(self, raw):
+            self.sent.append(raw)
+
+        async def __aiter__(self):
+            yield m.encode(m.CREATE_ROOM, name="Kain", character="cat")
+            raise ConnectionClosedError(None, None)
+
+    ws = VanishingSocket()
+    await handler(ws)                       # must not raise
+    assert registry.rooms == {}             # room torn down on the way out
