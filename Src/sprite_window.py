@@ -30,12 +30,6 @@ class FrameCycler:
         self._elapsed = 0.0
 
 
-def load_frames(sprites_dir: Path, character: str, anim: str) -> list[QPixmap]:
-    folder = Path(sprites_dir) / character / anim
-    files = sorted(folder.glob("*.png"), key=lambda p: int(p.stem))
-    return [QPixmap(str(f)) for f in files]
-
-
 def load_layer_frames(frames_dir: Path, anim: str) -> list[QPixmap]:
     folder = Path(frames_dir) / anim
     if not folder.is_dir():

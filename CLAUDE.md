@@ -50,6 +50,10 @@ room creator just "owns" the room socially.
 | `relay/room.py` | `Registry`: room create/join/leave/relay (pure async logic). |
 | `relay/server.py` | WebSocket wiring + connection lifecycle. |
 | `Src/world.py` | `Sprite`, `OwnController` (idle/walk AI), `World` (remote interpolation). |
+| `Src/appearance.py` | `Appearance` value object + skin palette. Forward-compatible `from_dict`. |
+| `Src/layers.py` | Manifest, slot discovery, `resolve_layers()`. **The only place that knows what a layer means.** |
+| `Src/profile.py` | Load/save the player's name and appearance. |
+| `Src/customizer.py` | `PreviewWidget` + `CustomizerPanel` (body type, skin color). |
 | `Src/User.py` | `PlayerIdentity` (name + character). |
 | `Src/sprite_window.py` | `FrameCycler` (pure) + `SpriteWindow` (Qt) + frame loader. |
 | `Src/menu.py` | Launch menu (name, character pick, create/join) + validators. |
@@ -72,6 +76,13 @@ room creator just "owns" the room socially.
   tested headless (`world`, `FrameCycler`, menu validators).
 - TDD with frequent commits; existing scaffold filenames (`Connections.py`,
   `User.py`, `Host.py`) are kept capitalized, new modules are lowercase.
+- A buddy's look is an **`Appearance`**, not a character name. It travels the
+  wire as a plain dict and the relay never inspects it, so new customization
+  slots are a client-only change.
+- Sprite art is **layered**: `Sprites/manifest.json` declares slots and draw
+  order, and a slot's options are the subdirectories of its folder. Bodies are
+  authored white and tinted at load. Dropping in `Sprites/Hair/<style>/` adds
+  that style with no code change.
 
 ## Commands
 
