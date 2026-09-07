@@ -1,0 +1,43 @@
+{
+  "fps": 6,
+  "scale": 1,
+  "slots": [
+    {
+      "name": "body",
+      "z": 0,
+      "dir": "Bodies",
+      "field": "body",
+      "tint_field": "skin",
+      "default": "round"
+    },
+    {
+      "name": "shoes",
+      "z": 10,
+      "dir": "Shoes",
+      "field": "shoes",
+      "tint_field": "shoe_color"
+    },
+    {
+      "name": "outfit",
+      "z": 20,
+      "dir": "Outfits",
+      "field": "outfit",
+      "tint_field": "outfit_color"
+    },
+    {
+      "name": "face",
+      "z": 30,
+      "dir": "Faces",
+      "field": "face",
+      "tint_field": null,
+      "default": "default"
+    },
+    {
+      "name": "hair",
+      "z": 40,
+      "dir": "Hair",
+      "field": "hair",
+      "tint_field": "hair_color"
+    }
+  ]
+}
