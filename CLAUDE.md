@@ -54,9 +54,9 @@ room creator just "owns" the room socially.
 | `Src/layers.py` | Manifest, slot discovery, `resolve_layers()`. **The only place that knows what a layer means.** |
 | `Src/profile.py` | Load/save the player's name and appearance. |
 | `Src/customizer.py` | `PreviewWidget` + `CustomizerPanel` (body type, skin color). |
-| `Src/User.py` | `PlayerIdentity` (name + character). |
-| `Src/sprite_window.py` | `FrameCycler` (pure) + `SpriteWindow` (Qt) + frame loader. |
-| `Src/menu.py` | Launch menu (name, character pick, create/join) + validators. |
+| `Src/User.py` | `PlayerIdentity` (name + appearance). |
+| `Src/sprite_window.py` | `FrameCycler` (pure) + `SpriteWindow` (Qt) + layer tinting/compositing (`tinted`, `composite_frames`) + frame loader. |
+| `Src/menu.py` | Launch menu (name, embedded `CustomizerPanel`, create/join) + validators. |
 | `Src/Connections.py` | `NetClient`: async websocket client on a bg thread → Qt signals. |
 | `Src/Host.py` | Tracks the owned/joined room code + assigned id. |
 | `Src/app.py` | `AppController`: wires menu, net, world, and sprite windows. |
