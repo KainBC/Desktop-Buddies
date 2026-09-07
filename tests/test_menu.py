@@ -1,4 +1,4 @@
-from Src.menu import validate_name, normalize_code, CHARACTERS
+from Src.menu import validate_name, normalize_code
 
 
 def test_validate_name():
@@ -10,7 +10,3 @@ def test_validate_name():
 
 def test_normalize_code():
     assert normalize_code("  plum-42 ") == "PLUM-42"
-
-
-def test_characters_nonempty():
-    assert CHARACTERS and all(isinstance(c, str) for c in CHARACTERS)

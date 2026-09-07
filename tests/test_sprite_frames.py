@@ -44,7 +44,8 @@ def test_sprite_window_stays_visible_when_app_inactive():
     app = QApplication.instance() or QApplication([])
     from Src.sprite_window import SpriteWindow
 
-    win = SpriteWindow("placeholder_cat", SPRITES_DIR)
+    from Src.appearance import Appearance
+    win = SpriteWindow(Appearance(), SPRITES_DIR)
     try:
         assert win.testAttribute(Qt.WA_MacAlwaysShowToolWindow)
     finally:

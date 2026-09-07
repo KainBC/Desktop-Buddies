@@ -24,16 +24,17 @@ async def test_create_join_and_relay(server):
     port = server
     url = f"ws://localhost:{port}"
     async with websockets.connect(url) as host, websockets.connect(url) as guest:
-        await host.send(m.encode(m.CREATE_ROOM, name="Kain", character="cat"))
+        await host.send(m.encode(m.CREATE_ROOM, name="Kain", appearance={"body": "round", "skin": "#e8b48c"}))
         created = await _recv(host)
         assert created["type"] == m.ROOM_CREATED
         code = created["code"]
 
-        await guest.send(m.encode(m.JOIN_ROOM, code=code, name="Sam", character="dog"))
+        await guest.send(m.encode(m.JOIN_ROOM, code=code, name="Sam", appearance={"body": "tall", "skin": "#a4673f"}))
         joined = await _recv(guest)
         assert joined["type"] == m.ROOM_JOINED
         assert await _recv(host) == {"type": m.MEMBER_JOINED, "id": joined["your_id"],
-                                     "name": "Sam", "character": "dog"}
+                                     "name": "Sam", "appearance": {"body": "tall",
+                                                                   "skin": "#a4673f"}}
 
         raw = m.encode(m.STATE, id=created["your_id"], x=0.4, y=0.9,
                        facing=1, anim="walk")
@@ -44,17 +45,17 @@ async def test_create_join_and_relay(server):
 async def test_unknown_code_errors(server):
     url = f"ws://localhost:{server}"
     async with websockets.connect(url) as guest:
-        await guest.send(m.encode(m.JOIN_ROOM, code="NOPE-00", name="x", character="cat"))
+        await guest.send(m.encode(m.JOIN_ROOM, code="NOPE-00", name="x", appearance={"body": "round", "skin": "#e8b48c"}))
         assert (await _recv(guest))["type"] == m.ERROR
 
 
 async def test_disconnect_sends_member_left(server):
     url = f"ws://localhost:{server}"
     async with websockets.connect(url) as host:
-        await host.send(m.encode(m.CREATE_ROOM, name="Kain", character="cat"))
+        await host.send(m.encode(m.CREATE_ROOM, name="Kain", appearance={"body": "round", "skin": "#e8b48c"}))
         code = (await _recv(host))["code"]
         guest = await websockets.connect(url)
-        await guest.send(m.encode(m.JOIN_ROOM, code=code, name="Sam", character="dog"))
+        await guest.send(m.encode(m.JOIN_ROOM, code=code, name="Sam", appearance={"body": "tall", "skin": "#a4673f"}))
         left_id = (await _recv(guest))["your_id"]
         await _recv(host)  # member_joined
         await guest.close()
@@ -64,11 +65,11 @@ async def test_disconnect_sends_member_left(server):
 async def test_relay_forwards_chat(server):
     url = f"ws://localhost:{server}"
     async with websockets.connect(url) as host, websockets.connect(url) as guest:
-        await host.send(m.encode(m.CREATE_ROOM, name="Kain", character="cat"))
+        await host.send(m.encode(m.CREATE_ROOM, name="Kain", appearance={"body": "round", "skin": "#e8b48c"}))
         created = await _recv(host)
         host_id = created["your_id"]
         await guest.send(m.encode(m.JOIN_ROOM, code=created["code"],
-                                  name="Sam", character="dog"))
+                                  name="Sam", appearance={"body": "tall", "skin": "#a4673f"}))
         await _recv(guest)   # room_joined
         await _recv(host)    # member_joined
 
@@ -80,10 +81,10 @@ async def test_relay_forwards_chat(server):
 async def test_relay_forwards_poke(server):
     url = f"ws://localhost:{server}"
     async with websockets.connect(url) as host, websockets.connect(url) as guest:
-        await host.send(m.encode(m.CREATE_ROOM, name="Kain", character="cat"))
+        await host.send(m.encode(m.CREATE_ROOM, name="Kain", appearance={"body": "round", "skin": "#e8b48c"}))
         created = await _recv(host)
         await guest.send(m.encode(m.JOIN_ROOM, code=created["code"],
-                                  name="Sam", character="dog"))
+                                  name="Sam", appearance={"body": "tall", "skin": "#a4673f"}))
         guest_id = (await _recv(guest))["your_id"]
         await _recv(host)    # member_joined
 
@@ -110,7 +111,7 @@ async def test_abrupt_disconnect_cleans_up_without_raising():
             self.sent.append(raw)
 
         async def __aiter__(self):
-            yield m.encode(m.CREATE_ROOM, name="Kain", character="cat")
+            yield m.encode(m.CREATE_ROOM, name="Kain", appearance={"body": "round", "skin": "#e8b48c"})
             raise ConnectionClosedError(None, None)
 
     ws = VanishingSocket()

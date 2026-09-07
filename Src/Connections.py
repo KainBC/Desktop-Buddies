@@ -27,12 +27,14 @@ class NetClient(QObject):
         self._hello: str | None = None   # first message to send on connect
 
     # ---- public API (called from the Qt/UI thread) ----
-    def start_create(self, url: str, name: str, character: str) -> None:
-        self._hello = m.encode(m.CREATE_ROOM, name=name, character=character)
+    def start_create(self, url: str, name: str, appearance: dict) -> None:
+        self._hello = m.encode(m.CREATE_ROOM, name=name, appearance=appearance)
         self._start(url)
 
-    def start_join(self, url: str, code: str, name: str, character: str) -> None:
-        self._hello = m.encode(m.JOIN_ROOM, code=code, name=name, character=character)
+    def start_join(self, url: str, code: str, name: str,
+                   appearance: dict) -> None:
+        self._hello = m.encode(m.JOIN_ROOM, code=code, name=name,
+                               appearance=appearance)
         self._start(url)
 
     def send_state(self, id: str, x: float, y: float, facing: int, anim: str) -> None:

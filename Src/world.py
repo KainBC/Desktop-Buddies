@@ -1,6 +1,7 @@
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from Src.appearance import Appearance
 from Src.poke import Hop
 
 IDLE = "idle"
@@ -14,7 +15,7 @@ LERP_RATE = 8.0     # remote interpolation responsiveness
 class Sprite:
     id: str
     name: str
-    character: str
+    appearance: "Appearance" = field(default_factory=Appearance)
     x: float = 0.5
     y: float = 0.9
     target_x: float = 0.5
@@ -67,8 +68,8 @@ class World:
         self.remotes: dict[str, Sprite] = {}
         self.hops: dict[str, Hop] = {}
 
-    def add_member(self, id: str, name: str, character: str) -> None:
-        self.remotes[id] = Sprite(id=id, name=name, character=character)
+    def add_member(self, id: str, name: str, appearance: Appearance) -> None:
+        self.remotes[id] = Sprite(id=id, name=name, appearance=appearance)
 
     def remove_member(self, id: str) -> None:
         self.remotes.pop(id, None)

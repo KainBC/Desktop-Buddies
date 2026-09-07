@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QApplication
 from Src.Connections import NetClient
 from Src.Host import Host
 from Src.User import PlayerIdentity
+from Src.appearance import Appearance
 from Src.bubble import BubbleWindow
 from Src.chat import bubble_position
 from Src.chat_input import ChatInputWindow
@@ -69,13 +70,13 @@ class AppController:
         self.timer.timeout.connect(self._tick)
 
     # ---- menu actions ----
-    def _on_create(self, name, character):
-        self.identity = PlayerIdentity(name, character)
-        self.net.start_create(self.relay_url, name, character)
+    def _on_create(self, name, appearance):
+        self.identity = PlayerIdentity(name, appearance)
+        self.net.start_create(self.relay_url, name, appearance.to_dict())
 
-    def _on_join(self, code, name, character):
-        self.identity = PlayerIdentity(name, character)
-        self.net.start_join(self.relay_url, code, name, character)
+    def _on_join(self, code, name, appearance):
+        self.identity = PlayerIdentity(name, appearance)
+        self.net.start_join(self.relay_url, code, name, appearance.to_dict())
 
     # ---- network events ----
     def _on_room_created(self, code, your_id):
@@ -87,12 +88,12 @@ class AppController:
         self.host.remember(None, your_id)
         self._begin_world(your_id)
         for mem in members:
-            self._add_remote(mem["id"], mem["name"], mem["character"])
+            self._add_remote(mem["id"], mem["name"], mem["appearance"])
         self.menu.hide()
 
     def _on_member_joined(self, mem):
         if self.world:
-            self._add_remote(mem["id"], mem["name"], mem["character"])
+            self._add_remote(mem["id"], mem["name"], mem["appearance"])
 
     def _on_member_left(self, mid):
         if self.world:
@@ -129,19 +130,21 @@ class AppController:
         if self.world is not None:
             return
         own = Sprite(id=your_id, name=self.identity.name,
-                     character=self.identity.character, y=FLOOR_FRACTION,
+                     appearance=self.identity.appearance, y=FLOOR_FRACTION,
                      target_y=FLOOR_FRACTION)
         self.world = World(own)
-        self.windows[your_id] = SpriteWindow(self.identity.character, SPRITES_DIR)
+        self.windows[your_id] = SpriteWindow(self.identity.appearance,
+                                             SPRITES_DIR)
         self.windows[your_id].clicked.connect(self._open_composer_for_own)
         if not self._hotkey_attempted and os.environ.get("BUDDIES_NO_HOTKEY") != "1":
             self._hotkey_attempted = True
             self.hotkey.start()   # False if the OS denied it; click still works
         self.timer.start(16)   # ~60 fps
 
-    def _add_remote(self, mid, name, character):
-        self.world.add_member(mid, name, character)
-        win = SpriteWindow(character, SPRITES_DIR)
+    def _add_remote(self, mid, name, appearance):
+        appearance = Appearance.from_dict(appearance)
+        self.world.add_member(mid, name, appearance)
+        win = SpriteWindow(appearance, SPRITES_DIR)
         # default-arg capture: a bare closure would read the final mid
         win.clicked.connect(lambda mid=mid: self._on_poke_clicked(mid))
         self.windows[mid] = win

@@ -27,31 +27,34 @@ class Registry:
 
     @staticmethod
     def _public(room: dict) -> list[dict]:
-        return [{"id": mem["id"], "name": mem["name"], "character": mem["character"]}
+        return [{"id": mem["id"], "name": mem["name"],
+                 "appearance": mem["appearance"]}
                 for mem in room["members"].values()]
 
-    async def create_room(self, name: str, character: str, send) -> tuple[str, str]:
+    async def create_room(self, name: str, appearance: dict, send
+                          ) -> tuple[str, str]:
         code = self._unique_code()
         mid = self._new_member_id()
         room = {"code": code, "members": {}}
         room["members"][mid] = {"id": mid, "name": name,
-                                "character": character, "send": send}
+                                "appearance": appearance, "send": send}
         self.rooms[code] = room
         await send(m.encode(m.ROOM_CREATED, code=code, your_id=mid))
         return code, mid
 
-    async def join_room(self, code: str, name: str, character: str, send) -> str | None:
+    async def join_room(self, code: str, name: str, appearance: dict, send
+                        ) -> str | None:
         room = self.rooms.get(code)
         if room is None:
             return None
         mid = self._new_member_id()
         await send(m.encode(m.ROOM_JOINED, your_id=mid, members=self._public(room)))
         room["members"][mid] = {"id": mid, "name": name,
-                                "character": character, "send": send}
+                                "appearance": appearance, "send": send}
         for mem in room["members"].values():
             if mem["id"] != mid:
                 await mem["send"](m.encode(m.MEMBER_JOINED, id=mid,
-                                           name=name, character=character))
+                                           name=name, appearance=appearance))
         return mid
 
     async def relay(self, code: str, sender_id: str, raw: str) -> None:

@@ -1,7 +1,9 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from Src.appearance import Appearance
 
 
 @dataclass
 class PlayerIdentity:
     name: str
-    character: str
+    appearance: Appearance = field(default_factory=Appearance)

@@ -25,12 +25,12 @@ def make_handler(registry: Registry):
 
                 if mtype == m.CREATE_ROOM and member_id is None:
                     code, member_id = await registry.create_room(
-                        msg.get("name", ""), msg.get("character", ""), send)
+                        msg.get("name", ""), msg.get("appearance", {}), send)
 
                 elif mtype == m.JOIN_ROOM and member_id is None:
                     mid = await registry.join_room(
                         msg.get("code", ""), msg.get("name", ""),
-                        msg.get("character", ""), send)
+                        msg.get("appearance", {}), send)
                     if mid is None:
                         await send(m.encode(m.ERROR, reason="Room not found"))
                     else:

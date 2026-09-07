@@ -1,9 +1,10 @@
-import json
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QPoint, Signal
 from PySide6.QtGui import QPixmap, QPainter, QTransform, QColor
 from PySide6.QtWidgets import QWidget
+
+from Src.layers import load_manifest, resolve_layers
 
 
 class FrameCycler:
@@ -91,7 +92,7 @@ def composite_frames(layers, anim: str) -> list[QPixmap]:
 class SpriteWindow(QWidget):
     clicked = Signal()
 
-    def __init__(self, character: str, sprites_dir: Path):
+    def __init__(self, appearance, sprites_dir: Path):
         super().__init__(None)
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -100,11 +101,12 @@ class SpriteWindow(QWidget):
         # this keeps the sprite on screen even when another app has focus.
         self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
 
-        cfg = json.loads((Path(sprites_dir) / character / "sprite.json").read_text())
-        self._fps = cfg.get("fps", 6)
+        manifest = load_manifest(sprites_dir)
+        self._fps = manifest.get("fps", 6)
+        layers = resolve_layers(appearance, sprites_dir, manifest)
         self._frames = {
-            "idle": load_frames(sprites_dir, character, "idle"),
-            "walk": load_frames(sprites_dir, character, "walk"),
+            "idle": composite_frames(layers, "idle"),
+            "walk": composite_frames(layers, "walk"),
         }
         self._anim = "idle"
         self._facing = 1

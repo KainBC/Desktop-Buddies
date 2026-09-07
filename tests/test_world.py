@@ -1,15 +1,17 @@
 import random
 from Src.User import PlayerIdentity
 from Src.world import Sprite, OwnController, World, IDLE, WALK
+from Src.appearance import Appearance
 
 
-def test_identity_holds_name_and_character():
-    ident = PlayerIdentity(name="Kain", character="cat")
-    assert (ident.name, ident.character) == ("Kain", "cat")
+def test_identity_holds_name_and_appearance():
+    ident = PlayerIdentity(name="Kain", appearance=Appearance(body="tall"))
+    assert ident.name == "Kain"
+    assert ident.appearance.body == "tall"
 
 
 def test_own_controller_starts_idle_then_walks():
-    s = Sprite(id="me", name="Kain", character="cat", x=0.5, y=0.9)
+    s = Sprite(id="me", name="Kain", appearance=Appearance(), x=0.5, y=0.9)
     ctrl = OwnController(s, rng=random.Random(1))
     assert s.anim == IDLE
     ctrl.update(10.0)          # exceed any idle interval
@@ -18,7 +20,7 @@ def test_own_controller_starts_idle_then_walks():
 
 
 def test_own_controller_reaches_target_and_returns_to_idle():
-    s = Sprite(id="me", name="Kain", character="cat", x=0.5, y=0.9)
+    s = Sprite(id="me", name="Kain", appearance=Appearance(), x=0.5, y=0.9)
     ctrl = OwnController(s, rng=random.Random(1))
     ctrl.update(10.0)                 # -> WALK toward some target
     target = s.target_x
@@ -31,7 +33,7 @@ def test_own_controller_reaches_target_and_returns_to_idle():
 
 
 def test_own_controller_faces_direction_of_travel():
-    s = Sprite(id="me", name="Kain", character="cat", x=0.5, y=0.9)
+    s = Sprite(id="me", name="Kain", appearance=Appearance(), x=0.5, y=0.9)
     ctrl = OwnController(s, rng=random.Random(1))
     ctrl.update(10.0)                       # -> WALK, target chosen from x=0.5
     expected = 1 if s.target_x >= 0.5 else -1
@@ -40,7 +42,7 @@ def test_own_controller_faces_direction_of_travel():
 
 
 def test_world_add_apply_and_lerp_remote():
-    own = Sprite(id="me", name="Kain", character="cat")
+    own = Sprite(id="me", name="Kain", appearance=Appearance())
     world = World(own)
     world.add_member("them", "Sam", "dog")
     world.apply_state("them", x=1.0, y=0.9, facing=-1, anim=WALK)
@@ -55,7 +57,7 @@ def test_world_add_apply_and_lerp_remote():
 
 
 def test_world_remove_member():
-    world = World(Sprite(id="me", name="Kain", character="cat"))
+    world = World(Sprite(id="me", name="Kain", appearance=Appearance()))
     world.add_member("them", "Sam", "dog")
     world.remove_member("them")
     assert "them" not in world.remotes
@@ -65,7 +67,7 @@ def test_world_remove_member():
 # --- pokes ---
 
 def _world_with_remote():
-    world = World(Sprite(id="me", name="Kain", character="cat"))
+    world = World(Sprite(id="me", name="Kain", appearance=Appearance()))
     world.add_member("them", "Sam", "dog")
     return world
 
@@ -126,3 +128,9 @@ def test_removing_a_member_drops_their_hop():
     world.poke("them")
     world.remove_member("them")
     assert "them" not in world.hops
+
+
+def test_add_member_stores_appearance():
+    world = World(Sprite(id="me", name="Kain", appearance=Appearance()))
+    world.add_member("2", "Sam", Appearance.from_dict({"body": "slim"}))
+    assert world.remotes["2"].appearance.body == "slim"
