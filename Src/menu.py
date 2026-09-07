@@ -1,9 +1,9 @@
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton,
-    QLabel)
+    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel)
 
 from Src.appearance import Appearance
+from Src.customizer import CustomizerPanel
 
 
 def validate_name(name: str) -> bool:
@@ -19,14 +19,18 @@ class MenuWindow(QWidget):
     create_requested = Signal(str, object)        # name, Appearance
     join_requested = Signal(str, str, object)     # code, name, Appearance
 
-    def __init__(self):
+    def __init__(self, sprites_dir, name: str = "",
+                 appearance: Appearance | None = None):
         super().__init__()
         self.setWindowTitle("Desktop Buddies")
-        self._appearance_value = Appearance()
         layout = QVBoxLayout(self)
 
         self._name = QLineEdit(placeholderText="Your name")
+        self._name.setText(name)
         layout.addWidget(self._name)
+
+        self.customizer = CustomizerPanel(sprites_dir, appearance)
+        layout.addWidget(self.customizer)
 
         create_btn = QPushButton("Create room")
         create_btn.clicked.connect(self._on_create)
@@ -43,14 +47,17 @@ class MenuWindow(QWidget):
         self._status = QLabel("")
         layout.addWidget(self._status)
 
-    def _appearance(self) -> Appearance:
-        return self._appearance_value
+    def name(self) -> str:
+        return self._name.text().strip()
+
+    def appearance(self) -> Appearance:
+        return self.customizer.appearance()
 
     def _on_create(self) -> None:
         if not validate_name(self._name.text()):
             self.show_error("Enter a name (1-20 chars).")
             return
-        self.create_requested.emit(self._name.text().strip(), self._appearance())
+        self.create_requested.emit(self.name(), self.appearance())
 
     def _on_join(self) -> None:
         if not validate_name(self._name.text()):
@@ -60,7 +67,7 @@ class MenuWindow(QWidget):
         if not code:
             self.show_error("Enter a room code.")
             return
-        self.join_requested.emit(code, self._name.text().strip(), self._appearance())
+        self.join_requested.emit(code, self.name(), self.appearance())
 
     def show_code(self, code: str) -> None:
         self._status.setText(f"Room code: {code}  (share this)")

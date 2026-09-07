@@ -3,7 +3,7 @@ import sys
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QStandardPaths, QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication
 
@@ -17,12 +17,19 @@ from Src.chat_input import ChatInputWindow
 from Src.hotkey import GlobalHotkey
 from Src.menu import MenuWindow
 from Src.poke import PokeCooldown
+from Src.profile import load_profile, save_profile
 from Src.sprite_window import SpriteWindow
 from Src.world import World, Sprite
 
 SPRITES_DIR = Path(__file__).resolve().parent.parent / "Sprites"
 FLOOR_FRACTION = 0.9          # baseline y for sprites
 SEND_INTERVAL = 0.1           # seconds between own-state broadcasts
+
+
+def profile_path() -> Path:
+    root = QStandardPaths.writableLocation(
+        QStandardPaths.AppConfigLocation) or str(Path.home() / ".config")
+    return Path(root) / "desktop-buddies" / "profile.json"
 
 
 def should_broadcast(changed: bool, accum: float, interval: float, anim_changed: bool) -> bool:
@@ -48,7 +55,9 @@ class AppController:
         self._last_sent_anim: str | None = None
 
         self.net = NetClient()
-        self.menu = MenuWindow()
+        self.profile_path = profile_path()
+        saved_name, saved_appearance = load_profile(self.profile_path)
+        self.menu = MenuWindow(SPRITES_DIR, saved_name, saved_appearance)
         self.menu.create_requested.connect(self._on_create)
         self.menu.join_requested.connect(self._on_join)
         self.net.room_created.connect(self._on_room_created)
@@ -72,10 +81,12 @@ class AppController:
     # ---- menu actions ----
     def _on_create(self, name, appearance):
         self.identity = PlayerIdentity(name, appearance)
+        save_profile(self.profile_path, name, appearance)
         self.net.start_create(self.relay_url, name, appearance.to_dict())
 
     def _on_join(self, code, name, appearance):
         self.identity = PlayerIdentity(name, appearance)
+        save_profile(self.profile_path, name, appearance)
         self.net.start_join(self.relay_url, code, name, appearance.to_dict())
 
     # ---- network events ----
