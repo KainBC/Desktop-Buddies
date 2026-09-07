@@ -81,12 +81,18 @@ class AppController:
     # ---- menu actions ----
     def _on_create(self, name, appearance):
         self.identity = PlayerIdentity(name, appearance)
-        save_profile(self.profile_path, name, appearance)
+        try:
+            save_profile(self.profile_path, name, appearance)
+        except OSError:
+            pass   # persistence is a convenience; connecting is the point
         self.net.start_create(self.relay_url, name, appearance.to_dict())
 
     def _on_join(self, code, name, appearance):
         self.identity = PlayerIdentity(name, appearance)
-        save_profile(self.profile_path, name, appearance)
+        try:
+            save_profile(self.profile_path, name, appearance)
+        except OSError:
+            pass   # persistence is a convenience; connecting is the point
         self.net.start_join(self.relay_url, code, name, appearance.to_dict())
 
     # ---- network events ----

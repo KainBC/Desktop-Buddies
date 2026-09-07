@@ -69,7 +69,13 @@ def composite_frames(layers, anim: str) -> list[QPixmap]:
     if not stacks:
         return []
 
-    base = stacks[0]                 # the body drives the timeline
+    # `stacks[0]` is the lowest-z layer that actually has frames for this
+    # anim (ordinarily the body, since body is z=0). Its frame count drives
+    # the timeline every other layer loops or truncates against. A body
+    # missing art for this anim demotes the base to the next layer up --
+    # e.g. a body with no walk/ art would let a 1-frame face become the
+    # walk base, so the buddy would render as floating eyes.
+    base = stacks[0]
     size = base[0].size()
     out = []
     for i in range(len(base)):
@@ -105,8 +111,9 @@ class SpriteWindow(QWidget):
         self._anim = "idle"
         self._facing = 1
         self._cycler = FrameCycler(len(self._frames["idle"]), self._fps)
-        size = self._frames["idle"][0].size()
-        self.resize(size)
+        if self._frames["idle"]:
+            size = self._frames["idle"][0].size()
+            self.resize(size)
         self.show()
 
     def set_animation(self, name: str) -> None:

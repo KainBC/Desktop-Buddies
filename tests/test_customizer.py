@@ -87,6 +87,29 @@ def test_choosing_a_skin_emits_and_updates():
         p.deleteLater()
 
 
+def test_clicking_a_swatch_button_selects_its_own_color():
+    _qt_app()
+    from PySide6.QtWidgets import QPushButton
+    from Src.appearance import Appearance, SKIN_PALETTE
+    from Src.customizer import CustomizerPanel
+
+    p = CustomizerPanel(SPRITES_DIR, Appearance())
+    seen = []
+    p.appearance_changed.connect(seen.append)
+    try:
+        swatches = p.findChildren(QPushButton)
+        assert len(swatches) == len(SKIN_PALETTE)
+        target_index = 0   # not the last palette entry
+        assert SKIN_PALETTE[target_index] != SKIN_PALETTE[-1]
+        swatches[target_index].click()
+        assert p.appearance().skin == SKIN_PALETTE[target_index]
+        assert p.appearance().skin != SKIN_PALETTE[-1]
+        assert seen and seen[-1].skin == SKIN_PALETTE[target_index]
+    finally:
+        p.close()
+        p.deleteLater()
+
+
 def test_body_choices_come_from_the_sprite_tree():
     _qt_app()
     from Src.customizer import CustomizerPanel

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QComboBox, QPushButton)
 
 from Src.appearance import Appearance, SKIN_PALETTE
-from Src.layers import body_options, resolve_layers
+from Src.layers import body_options, load_manifest, resolve_layers
 from Src.sprite_window import composite_frames, FrameCycler
 
 PREVIEW_ANIM = "idle"
@@ -29,7 +29,8 @@ class PreviewWidget(QWidget):
         self._sprites_dir = Path(sprites_dir)
         self._scale = scale
         self._frames: list[QPixmap] = []
-        self._cycler = FrameCycler(0, 6)
+        self._fps = load_manifest(self._sprites_dir).get("fps", 6)
+        self._cycler = FrameCycler(0, self._fps)
         self.set_appearance(appearance or Appearance())
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
@@ -38,7 +39,7 @@ class PreviewWidget(QWidget):
     def set_appearance(self, appearance: Appearance) -> None:
         layers = resolve_layers(appearance, self._sprites_dir)
         self._frames = composite_frames(layers, PREVIEW_ANIM)
-        self._cycler = FrameCycler(len(self._frames), 6)
+        self._cycler = FrameCycler(len(self._frames), self._fps)
         if self._frames:
             size = self._frames[0].size()
             self.setFixedSize(size.width() * self._scale,

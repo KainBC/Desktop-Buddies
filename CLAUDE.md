@@ -83,6 +83,17 @@ room creator just "owns" the room socially.
   order, and a slot's options are the subdirectories of its folder. Bodies are
   authored white and tinted at load. Dropping in `Sprites/Hair/<style>/` adds
   that style with no code change.
+- Adding a whole new **slot** (e.g. hair) is *not* a change to
+  `Src/layers.py` — `resolve_layers()` is fully manifest-driven, so a new
+  entry in `manifest.json`'s `slots` list is all it needs. The real cost is:
+  art, two new fields on `Appearance` (the slot choice and, if tintable, its
+  color), and one new control in `CustomizerPanel`. Two constraints a slot
+  author must know: new art must be authored at the body's canvas size (the
+  composite canvas in `composite_frames()` is `base[0].size()`, i.e. the
+  body layer's frame size, and every other layer draws at `(0, 0)` onto it
+  unscaled), and a layer with MORE frames than the body's for a given anim is
+  truncated — only `frames[i % len(frames)]` up to the body's frame count is
+  ever drawn.
 
 ## Commands
 
