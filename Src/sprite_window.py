@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QPoint, Signal
-from PySide6.QtGui import QPixmap, QPainter, QTransform
+from PySide6.QtGui import QPixmap, QPainter, QTransform, QColor
 from PySide6.QtWidgets import QWidget
 
 
@@ -33,6 +33,59 @@ def load_frames(sprites_dir: Path, character: str, anim: str) -> list[QPixmap]:
     folder = Path(sprites_dir) / character / anim
     files = sorted(folder.glob("*.png"), key=lambda p: int(p.stem))
     return [QPixmap(str(f)) for f in files]
+
+
+def load_layer_frames(frames_dir: Path, anim: str) -> list[QPixmap]:
+    folder = Path(frames_dir) / anim
+    if not folder.is_dir():
+        return []
+    files = sorted(folder.glob("*.png"), key=lambda p: int(p.stem))
+    return [QPixmap(str(f)) for f in files]
+
+
+def tinted(pix: QPixmap, color: str) -> QPixmap:
+    """Recolor art while preserving its alpha.
+
+    SourceIn keeps the destination alpha and replaces RGB, which is right for
+    the flat silhouettes this project ships. Shaded art would want Multiply
+    over a greyscale source instead.
+    """
+    out = pix.copy()
+    p = QPainter(out)
+    p.setCompositionMode(QPainter.CompositionMode_SourceIn)
+    p.fillRect(out.rect(), QColor(color))
+    p.end()
+    return out
+
+
+def composite_frames(layers, anim: str) -> list[QPixmap]:
+    """Stack resolved layers back to front into finished frames.
+
+    Called once per SpriteWindow, never per tick.
+    """
+    stacks = []
+    for spec in layers:
+        frames = load_layer_frames(spec.frames_dir, anim)
+        if not frames:
+            continue
+        if spec.tint:
+            frames = [tinted(f, spec.tint) for f in frames]
+        stacks.append(frames)
+    if not stacks:
+        return []
+
+    base = stacks[0]                 # the body drives the timeline
+    size = base[0].size()
+    out = []
+    for i in range(len(base)):
+        canvas = QPixmap(size)
+        canvas.fill(Qt.transparent)
+        p = QPainter(canvas)
+        for frames in stacks:
+            p.drawPixmap(0, 0, frames[i % len(frames)])
+        p.end()
+        out.append(canvas)
+    return out
 
 
 class SpriteWindow(QWidget):
