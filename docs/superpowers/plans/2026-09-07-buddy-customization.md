@@ -264,13 +264,17 @@ def _body_frame(wf: float, hf: float, squash: float, step: int) -> QImage:
 
 def _face_frame() -> QImage:
     """Eyes at a fixed head height so one face reads acceptably on every
-    body type. Real art would ship a face per body."""
+    body type. Real art would ship a face per body.
+
+    0.45 is not arbitrary: the shortest body ("round") starts at y=22.3, so
+    anything above that floats the eyes off the head. 0.45 -> y=28.8 lands
+    inside all three."""
     img = _canvas()
     p = QPainter(img)
     p.setRenderHint(QPainter.Antialiasing)
     p.setPen(Qt.NoPen)
     p.setBrush(QBrush(INK))
-    eye_y = SIZE * 0.30
+    eye_y = SIZE * 0.45
     cx = SIZE / 2
     p.drawEllipse(QRectF(cx - 11, eye_y, 6, 6))
     p.drawEllipse(QRectF(cx + 5, eye_y, 6, 6))
