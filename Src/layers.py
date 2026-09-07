@@ -46,16 +46,26 @@ def body_options(sprites_dir) -> list[str]:
 
 def resolve_layers(appearance, sprites_dir, manifest: dict | None = None
                    ) -> list[LayerSpec]:
+    """Resolve an Appearance into layers.
+
+    A slot's valid choices ARE its discovered subdirectories (see
+    slot_options) -- nothing else is a valid choice. `appearance` fields can
+    come straight from network input (a peer's JOIN payload), so a choice
+    that isn't one of those subdirectories -- a typo, a "../" traversal, an
+    absolute path -- must never reach the filesystem as a path component; it
+    falls back to the slot's default instead.
+    """
     sprites_dir = Path(sprites_dir)
     manifest = manifest if manifest is not None else load_manifest(sprites_dir)
     specs: list[LayerSpec] = []
     for slot in manifest["slots"]:
-        choice = getattr(appearance, slot["field"], None) or slot.get("default")
-        if not choice:
+        options = slot_options(sprites_dir, slot)
+        choice = getattr(appearance, slot["field"], None)
+        if choice not in options:
+            choice = slot.get("default")
+        if choice not in options:
             continue
         frames_dir = sprites_dir / slot["dir"] / choice
-        if not frames_dir.is_dir():
-            continue
         tint_field = slot.get("tint_field")
         tint = getattr(appearance, tint_field, None) if tint_field else None
         specs.append(LayerSpec(frames_dir=frames_dir, tint=tint, z=slot["z"]))

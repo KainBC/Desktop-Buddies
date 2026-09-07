@@ -71,10 +71,40 @@ def test_future_slot_appears_once_the_appearance_carries_it(tmp_path):
     assert layers[-1].tint == "#333333"
 
 
-def test_missing_chosen_directory_is_skipped(tmp_path):
+def test_unknown_choice_falls_back_to_default(tmp_path):
+    """An unrecognized name is not among the slot's discovered options, so
+    it must not silently vanish (a slot with no default would then render
+    with a piece missing) -- it falls back to the slot's default instead."""
     root = _fake_tree(tmp_path)
     layers = resolve_layers(Appearance(body="doesnotexist"), root)
-    assert all("Bodies" not in str(l.frames_dir) for l in layers)
+    body_layers = [l for l in layers if l.z == 0]
+    assert len(body_layers) == 1
+    assert body_layers[0].frames_dir == root / "Bodies" / "round"
+
+
+def test_path_traversal_choice_falls_back_to_default(tmp_path):
+    """A '../' choice must never escape the slot's own directory, even when
+    the escaped-to path really exists on disk."""
+    root = _fake_tree(tmp_path)
+    # If resolve_layers didn't validate against slot_options, this sibling
+    # of Bodies/ would successfully resolve -- it really is a directory.
+    (root / "evil" / "idle").mkdir(parents=True)
+    layers = resolve_layers(Appearance(body="../evil"), root)
+    body_layers = [l for l in layers if l.z == 0]
+    assert len(body_layers) == 1
+    assert body_layers[0].frames_dir == root / "Bodies" / "round"
+
+
+def test_absolute_path_choice_falls_back_to_default(tmp_path):
+    """An absolute path must never be honored as a choice, even when the
+    absolute path really exists on disk."""
+    root = _fake_tree(tmp_path)
+    outside = tmp_path.parent / "outside_evil"
+    (outside / "idle").mkdir(parents=True)
+    layers = resolve_layers(Appearance(body=str(outside)), root)
+    body_layers = [l for l in layers if l.z == 0]
+    assert len(body_layers) == 1
+    assert body_layers[0].frames_dir == root / "Bodies" / "round"
 
 
 def test_slot_options_lists_subdirectories(tmp_path):

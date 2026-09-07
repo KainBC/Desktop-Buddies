@@ -44,7 +44,7 @@ def test_own_controller_faces_direction_of_travel():
 def test_world_add_apply_and_lerp_remote():
     own = Sprite(id="me", name="Kain", appearance=Appearance())
     world = World(own)
-    world.add_member("them", "Sam", "dog")
+    world.add_member("them", "Sam", Appearance())
     world.apply_state("them", x=1.0, y=0.9, facing=-1, anim=WALK)
 
     before = world.remotes["them"].x
@@ -58,7 +58,7 @@ def test_world_add_apply_and_lerp_remote():
 
 def test_world_remove_member():
     world = World(Sprite(id="me", name="Kain", appearance=Appearance()))
-    world.add_member("them", "Sam", "dog")
+    world.add_member("them", "Sam", Appearance())
     world.remove_member("them")
     assert "them" not in world.remotes
     assert [sp.id for sp in world.all_sprites()] == ["me"]
@@ -68,7 +68,7 @@ def test_world_remove_member():
 
 def _world_with_remote():
     world = World(Sprite(id="me", name="Kain", appearance=Appearance()))
-    world.add_member("them", "Sam", "dog")
+    world.add_member("them", "Sam", Appearance())
     return world
 
 
