@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { FrameCycler, Hop } from "./buddy";
+import {
+  clampDt,
+  FrameCycler,
+  Hop,
+  MAX_DT,
+  MAX_X,
+  MIN_X,
+  Stage,
+  WALK_SPEED,
+  type BuddySpec,
+  type CharacterFrames,
+} from "./buddy";
 
 describe("FrameCycler", () => {
   it("advances at fps", () => {
@@ -103,5 +114,150 @@ describe("Hop", () => {
     const h = new Hop();
     expect(h.height).toBe(0.04);
     expect(h.duration).toBe(0.45);
+  });
+});
+
+const FRAMES: Record<string, CharacterFrames> = {
+  round: { idle: 2, walk: 4, fps: 6 },
+};
+
+const SPECS: BuddySpec[] = [{ id: "a", character: "round", x: 0.5 }];
+
+/** Deterministic rng cycling through fixed values, for seeded tests. */
+function seeded(values: number[]): () => number {
+  let i = 0;
+  return () => values[i++ % values.length];
+}
+
+describe("Stage", () => {
+  it("exposes its buddies with client defaults", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0.5]));
+    expect(s.buddies).toHaveLength(1);
+    expect(s.buddies[0]).toMatchObject({
+      id: "a",
+      character: "round",
+      x: 0.5,
+      facing: 1,
+      state: "idle",
+    });
+  });
+
+  it("starts walking once the idle beat elapses", () => {
+    // rng 0 -> idle beat of IDLE_MIN (2.0s), then target 0.05 (MIN_X)
+    const s = new Stage(SPECS, FRAMES, seeded([0]));
+    s.tick(0.1);
+    expect(s.buddies[0].state).toBe("idle");
+    s.tick(2.0);
+    expect(s.buddies[0].state).toBe("walk");
+    expect(s.buddies[0].facing).toBe(-1);   // target 0.05 is left of 0.5
+  });
+
+  it("walks at WALK_SPEED toward its target", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0]));
+    s.tick(2.0);                             // -> walk, target 0.05
+    s.tick(1.0);
+    expect(s.buddies[0].x).toBeCloseTo(0.5 - WALK_SPEED, 6);
+  });
+
+  it("faces right when the target is to the right", () => {
+    // rng 1 -> idle beat of IDLE_MAX, then target 0.95 (MAX_X)
+    const s = new Stage(SPECS, FRAMES, seeded([1]));
+    s.tick(5.0);
+    expect(s.buddies[0].state).toBe("walk");
+    expect(s.buddies[0].facing).toBe(1);
+  });
+
+  it("settles on the target and returns to idle", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0]));
+    s.tick(2.0);                             // -> walk, target 0.05
+    s.tick(10.0);                            // far more than enough
+    expect(s.buddies[0].x).toBeCloseTo(MIN_X, 6);
+    expect(s.buddies[0].state).toBe("idle");
+  });
+
+  it("keeps every buddy inside the stage over a long run", () => {
+    const s = new Stage(SPECS, FRAMES, Math.random);
+    for (let i = 0; i < 5000; i++) s.tick(0.016);
+    expect(s.buddies[0].x).toBeGreaterThanOrEqual(MIN_X);
+    expect(s.buddies[0].x).toBeLessThanOrEqual(MAX_X);
+  });
+
+  it("advances the frame cycler for the current state", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([1]));
+    expect(s.frame("a")).toBe(0);
+    s.tick(1 / 6);                           // one idle frame at 6fps
+    expect(s.frame("a")).toBe(1);
+  });
+
+  it("returns frame 0 for an unknown id", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0.5]));
+    expect(s.frame("nobody")).toBe(0);
+  });
+
+  it("hops a known buddy when poked", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0.5]));
+    expect(s.hopOffset("a")).toBe(0);
+    s.poke("a");
+    s.tick(0.225);                           // midway through a 0.45s hop
+    expect(s.hopOffset("a")).toBeCloseTo(0.04, 6);
+  });
+
+  it("restarts rather than stacks on a second poke", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0.5]));
+    s.poke("a");
+    s.tick(0.4);
+    s.poke("a");                             // resets the arc
+    expect(s.hopOffset("a")).toBe(0);
+    s.tick(0.225);
+    expect(s.hopOffset("a")).toBeCloseTo(0.04, 6);
+  });
+
+  it("ignores a poke for an unknown id", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0.5]));
+    s.poke("nobody");
+    expect(s.hopOffset("nobody")).toBe(0);
+  });
+
+  it("expires a hop once its duration elapses", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0.5]));
+    s.poke("a");
+    s.tick(0.5);                             // past the 0.45s duration
+    expect(s.hopOffset("a")).toBe(0);
+  });
+
+  it("integrates the dt it is handed, without clamping", () => {
+    // Clamping is the render loop's job, not the simulation's: Stage stays
+    // a plain integrator so tests can advance it in whole seconds.
+    const s = new Stage(SPECS, FRAMES, seeded([0]));
+    s.tick(2.0);                             // -> walk, target 0.05
+    s.tick(1.0);
+    expect(s.buddies[0].x).toBeCloseTo(0.5 - WALK_SPEED, 6);
+  });
+
+  it("holds still when motion is frozen, but still hops", () => {
+    const s = new Stage(SPECS, FRAMES, seeded([0]));
+    s.frozen = true;
+    s.tick(5.0);
+    expect(s.buddies[0].state).toBe("idle");
+    expect(s.buddies[0].x).toBe(0.5);
+    expect(s.frame("a")).toBe(0);
+    s.poke("a");
+    s.tick(0.225);
+    expect(s.hopOffset("a")).toBeCloseTo(0.04, 6);
+  });
+});
+
+describe("clampDt", () => {
+  it("passes an ordinary frame through untouched", () => {
+    expect(clampDt(0.016)).toBe(0.016);
+  });
+
+  it("caps the enormous dt a backgrounded tab hands back", () => {
+    expect(clampDt(60)).toBe(MAX_DT);
+  });
+
+  it("floors a negative dt at zero", () => {
+    // Some clocks step backwards. Never rewind the simulation.
+    expect(clampDt(-1)).toBe(0);
   });
 });
