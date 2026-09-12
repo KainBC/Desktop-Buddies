@@ -2237,7 +2237,7 @@ cd desktop-buddies
 npm run lint && npm test && npm run build
 ```
 
-Expected: the Python suite passes, lint is clean, 48 Vitest tests pass, and
+Expected: the Python suite passes, lint is clean, 49 Vitest tests pass, and
 the build reports `/` and `/download` as static. Paste the actual output
 when reporting completion — do not claim it passed without it.
 
