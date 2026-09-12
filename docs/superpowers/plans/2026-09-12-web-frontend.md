@@ -1360,6 +1360,13 @@ export default function WindowFrame({
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
       <div className="flex items-center gap-2 border-b border-border bg-surface-2 px-4 py-3">
+        {/*
+          The macOS traffic-light colours, and the one deliberate exemption
+          from the token palette: real window chrome keeps these identical in
+          light and dark, so they cannot fail the "readable in both themes"
+          rule the tokens exist to enforce, and tokenising them would mean
+          three properties whose two definitions are byte-identical.
+        */}
         <span aria-hidden className="flex gap-1.5">
           <span className="size-3 rounded-full bg-[#ff5f57]" />
           <span className="size-3 rounded-full bg-[#febc2e]" />
