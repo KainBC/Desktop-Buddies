@@ -15,6 +15,7 @@ export default function WindowFrame({
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
       <div className="flex items-center gap-2 border-b border-border bg-surface-2 px-4 py-3">
+        {/* These are the macOS traffic-light colours, intentionally literal and theme-invariant — the real window chrome does not change them between light and dark. */}
         <span aria-hidden className="flex gap-1.5">
           <span className="size-3 rounded-full bg-[#ff5f57]" />
           <span className="size-3 rounded-full bg-[#febc2e]" />
