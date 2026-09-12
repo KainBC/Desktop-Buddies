@@ -69,7 +69,7 @@ export default function BuddyStage({
         // Fractional coordinates become pixels against the measured box.
         // The hop is subtracted so hopping up is a smaller y, exactly as
         // AppController._tick does it.
-        const x = buddy.x * width - SPRITE_PX / 2;
+        const x = buddy.x * Math.max(0, width - SPRITE_PX);
         const y = -stage.hopOffset(buddy.id) * height;
         node.style.transform =
           `translate(${x}px, ${y}px) scaleX(${buddy.facing})`;

@@ -4,6 +4,7 @@ import FeatureCard from "@/components/FeatureCard";
 import Footer from "@/components/Footer";
 import Steps from "@/components/Steps";
 import WindowFrame from "@/components/WindowFrame";
+import { framePath } from "@/lib/characters";
 import { GITHUB_URL } from "@/lib/links";
 
 export default function Home() {
@@ -52,17 +53,26 @@ export default function Home() {
         <section className="mx-auto max-w-5xl px-6 pb-16">
           <h2 className="sr-only">Features</h2>
           <div className="grid gap-6 sm:grid-cols-3">
-            <FeatureCard sprite="/sprites/placeholder_blob/walk/0.png" title="They wander">
+            <FeatureCard
+              sprite={framePath("placeholder_blob", "walk", 0)}
+              title="They wander"
+            >
               Each buddy idles and walks along the bottom of the screen on its
-              own, in a frameless always-on-top window that never steals your
-              clicks.
+              own, in a small frameless window that stays on top without
+              covering your screen.
             </FeatureCard>
-            <FeatureCard sprite="/sprites/placeholder_cat/idle/0.png" title="Chat bubbles">
+            <FeatureCard
+              sprite={framePath("placeholder_cat", "idle", 0)}
+              title="Chat bubbles"
+            >
               Press the global hotkey or click your buddy to type; what you
               send appears as a bubble over your character on everyone&apos;s
               desktop.
             </FeatureCard>
-            <FeatureCard sprite="/sprites/placeholder_dog/walk/2.png" title="Your own room">
+            <FeatureCard
+              sprite={framePath("placeholder_dog", "walk", 2)}
+              title="Your own room"
+            >
               Share a short code and your buddies appear on each other&apos;s
               desktops. No accounts and no sign-up — just a relay you run
               yourself.

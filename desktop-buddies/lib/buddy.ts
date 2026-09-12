@@ -1,11 +1,14 @@
 /**
  * The site's buddy simulation. Pure TypeScript: no React, no DOM.
  *
- * Ported from the desktop client's `Src/world.py`, `Src/poke.py` and the
- * `FrameCycler` in `Src/sprite_window.py`, keeping the same names and the
- * same units so the two codebases stay legible to each other. Positions are
- * fractional (0.0-1.0) exactly as they are on the wire; pixels appear only
- * at render time.
+ * `FrameCycler` and the wander loop are ported from the desktop client's
+ * `Src/sprite_window.py` and `Src/world.py`'s `OwnController`, keeping the
+ * same names and the same units so the two codebases stay legible to each
+ * other. `Hop` and the poke/hop bookkeeping have no counterpart on this
+ * branch — they were written against the client's hop work, which lives on
+ * the unmerged `pokes` branch; the site's click-to-hop is its own
+ * affordance. Positions are fractional (0.0-1.0) exactly as they are on the
+ * wire; pixels appear only at render time.
  */
 
 /** Cycles an animation's frames at a fixed rate. */
@@ -134,8 +137,10 @@ interface Runtime {
  *
  * The decision loop is `OwnController.update` from Src/world.py: hold idle
  * for a randomised beat, pick a target, walk to it, idle again. The hop
- * bookkeeping is `World.poke` / `World.hop_offset` / the hop half of
- * `World.tick`. The rng is injectable so tests are deterministic.
+ * bookkeeping (`poke` / `hopOffset` / the hop half of `tick`) has no
+ * counterpart on this branch — it is the site's own affordance for turning
+ * a click into a response, not a port of client code. The rng is injectable
+ * so tests are deterministic.
  */
 export class Stage {
   readonly buddies: Buddy[];

@@ -31,9 +31,12 @@ Three pieces:
   4). A separate deliverable from the desktop client: it shares the sprite
   art and copies the client's animation feel, but imports no Python, talks
   to no relay, and has no build-time dependency on the rest of the repo.
-  Its animation logic lives in a pure, React-free `lib/buddy.ts` ported from
-  `Src/world.py` and `Src/poke.py`; its sprite frames are copies of the
-  placeholder art in `Sprites/`, refreshed whenever that art changes.
+  Its animation logic lives in a pure, React-free `lib/buddy.ts` whose
+  `FrameCycler` and wander loop are ported from `Src/sprite_window.py` and
+  `Src/world.py`'s `OwnController`; its click-to-hop is the site's own
+  affordance, with no counterpart on this branch. Its sprite frames are
+  copies of the placeholder art in `Sprites/`, refreshed whenever that art
+  changes.
 
 Each client is authoritative over **its own** sprite only and streams its state;
 the relay forwards it; peers interpolate. There is no authoritative host — the
