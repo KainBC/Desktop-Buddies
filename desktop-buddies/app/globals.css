@@ -1,26 +1,58 @@
 @import "tailwindcss";
 
+/*
+ * The scaffold's teal-on-white / white-on-slate palette is kept and
+ * extended. Every colour is defined here in :root and redefined in the dark
+ * block below -- no element gets its only definition inside one theme.
+ * There is no toggle; the site follows prefers-color-scheme.
+ */
 :root {
   --background: #ffffff;
-  --foreground: #568889;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --foreground: #223033;
+  --surface: #f4f7f7;
+  --surface-2: #e7eded;
+  --border: #d2dedd;
+  --muted: #5f7274;
+  --accent: #568889;
+  --accent-contrast: #ffffff;
+  --floor: #c3d3d3;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #222f34;
     --foreground: #ffffff;
+    --surface: #2b3a40;
+    --surface-2: #35464d;
+    --border: #3f535a;
+    --muted: #a8bdc0;
+    --accent: #7fb3b4;
+    --accent-contrast: #142024;
+    --floor: #47606a;
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-floor: var(--floor);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* The art is 64px and gets scaled up; keep it crisp rather than smeared. */
+.pixelated {
+  image-rendering: pixelated;
 }
