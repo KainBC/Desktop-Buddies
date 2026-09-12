@@ -6,7 +6,10 @@ import type { AnimState, BuddySpec, CharacterFrames } from "./buddy";
  * Frame counts are recorded rather than discovered, so the loader never
  * guesses at what exists on disk. They come from `Sprites/<c>/sprite.json`
  * and the frame files themselves; `characters.test.ts` asserts this record
- * still matches what is actually there, so the two cannot drift silently.
+ * still matches what is actually there in both directions — a listed
+ * character's frame count matches its files, and no character folder
+ * exists on disk that this record omits — so the two cannot drift
+ * silently in either direction.
  */
 export interface Character {
   id: string;

@@ -36,8 +36,9 @@ describe("the character manifest", () => {
     }
   });
 
-  // The manifest records frame counts instead of discovering them, so this
-  // is the test that catches the record and the art drifting apart.
+  // The manifest records frame counts instead of discovering them. This
+  // catches the record and a manifest entry's art drifting apart in one
+  // direction: a listed character whose on-disk frames no longer match.
   it.each(Object.entries(CHARACTER_FRAMES))(
     "matches the frames actually on disk for %s",
     (character, frames) => {
@@ -52,4 +53,17 @@ describe("the character manifest", () => {
       }
     },
   );
+
+  // The test above only walks characters the manifest already knows about,
+  // so it can't catch the other direction: a character folder dropped
+  // under public/sprites/ but never added to the manifest, or a manifest
+  // entry with no art on disk at all. This closes that gap with equality,
+  // not a subset check, since either omission is a defect worth catching.
+  it("has no character on disk that the manifest omits", () => {
+    const onDisk = readdirSync(PUBLIC_SPRITES, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name)
+      .sort();
+    expect(onDisk).toEqual(Object.keys(CHARACTER_FRAMES).sort());
+  });
 });
