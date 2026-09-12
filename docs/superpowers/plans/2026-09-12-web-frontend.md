@@ -10,35 +10,30 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-29-web-frontend-design.md`
 
-## Spec Amendment: Assets
+## Note on Assets (amendment withdrawn)
 
-The spec's **Assets** section is stale. It was written 2026-08-29; commit
-`a9b10ca` ("chore: retire flat placeholder characters, document the layer
-system") landed 2026-09-07 and replaced the three flat placeholder
-characters with a layered slot system.
+An earlier revision of this plan amended the spec's **Assets** section,
+claiming it was stale because the desktop client had moved to a layered,
+tinted sprite system. That amendment was wrong **for this branch** and has
+been withdrawn.
 
-The spec says: copy `Sprites/<character>/{idle,walk}/<n>.png` to
-`public/sprites/`, and read frame counts off `sprite.json`.
+`web-frontend` forks from `main` at `1019bd3`. The layered sprite system
+(`Src/layers.py`, `Src/appearance.py`, `composite_frames()`, and a
+manifest-driven `Sprites/` tree) exists only on the unmerged `pokes`
+branch. What `Sprites/` actually holds here is exactly what the spec
+describes: three flat characters — `placeholder_blob`, `placeholder_cat`,
+`placeholder_dog` — each with `sprite.json` (`fps: 6`), 2 idle frames, 4
+walk frames, authored at 64x64.
 
-What is actually on disk: `Sprites/manifest.json` declaring five slots
-(body z=0 tinted by `skin`, shoes z=10, outfit z=20, face z=30 untinted,
-hair z=40); `Sprites/Bodies/{slim,round,tall}/{idle,walk}/` with 2 idle and
-4 walk frames each, **authored white and tinted at load**;
-`Sprites/Faces/default/{idle,walk}/0.png` with one frame each. Shoes, Hair,
-Outfits and Misc. exist as empty directories. `fps` is 6, canvas is 64×64.
-There is no `sprite.json` anywhere.
+So the spec stands unamended, and Task 5 is the straight copy it always
+described. There is no bake tool.
 
-**Resolution:** Task 5 adds `tools/bake_web_sprites.py`, which imports the
-client's existing `resolve_layers()` and `composite_frames()` and writes
-flat, tinted, pre-composited PNG sequences to
-`desktop-buddies/public/sprites/<look>/{idle,walk}/<n>.png`. The site then
-consumes exactly the flat layout the spec's site-side architecture assumes,
-the compositing rules are not duplicated in TypeScript, and the drift is
-confined to one tool plus one constant. `lib/characters.ts` becomes a
-hand-written manifest of **looks** (a body + skin pairing) rather than of
-"characters", and gains a `label` used for each buddy's `aria-label`.
-
-Everything else in the spec stands as written.
+When the layered system does reach `main`, the flat placeholders are
+retired and this copy goes stale. At that point the right move is a small
+`tools/bake_web_sprites.py` that reuses the client's own `resolve_layers()`
+and `composite_frames()` to flatten a fixed set of looks — reusing the
+client's compositor rather than porting the layer stack to TypeScript for
+three static buddies. That is a follow-up, recorded under **Deferred**.
 
 ## Global Constraints
 
@@ -1035,233 +1030,58 @@ EOF
 
 ---
 
-### Task 5: Bake the layered sprites into flat web frames
+### Task 5: Copy the sprite frames and write the character manifest
 
-See **Spec Amendment: Assets** above for why this task exists. The client's
-art is layered and tinted at load; the site wants flat PNG sequences. Rather
-than port the compositor to TypeScript, a Python tool reuses the client's
-own `resolve_layers()` and `composite_frames()` and writes the flattened
-result into `public/sprites/`.
+The site needs the sprite art under `public/`, because Next serves static
+files only from `desktop-buddies/public/` and `Sprites/` lives outside the
+Next app. Six small PNGs per character and the art is a placeholder anyway,
+so a sync script would be more machinery than the problem deserves — the
+files are copied and committed, and refreshed in the same commit whenever
+the art changes.
 
 **Files:**
-- Create: `tools/bake_web_sprites.py` (repository root, alongside `make_placeholder_sprites.py`)
-- Test: `tests/test_bake_web_sprites.py`
-- Create: `desktop-buddies/public/sprites/{round,tall,slim}/{idle,walk}/*.png` (generated, committed)
+- Create: `desktop-buddies/public/sprites/<character>/{idle,walk}/*.png` (copied, committed — 18 files)
 - Create: `desktop-buddies/lib/characters.ts`
-- Modify: `CLAUDE.md` (document the new tool in Commands)
+- Test: `desktop-buddies/lib/characters.test.ts`
 
 **Interfaces:**
-- Consumes: `Src.appearance.Appearance`, `Src.layers.resolve_layers`, `Src.sprite_window.composite_frames`, and the `CharacterFrames` / `BuddySpec` types from Task 3.
-- Produces:
-  - Python: `LOOKS: dict[str, Appearance]`, `bake(sprites_dir: Path, out_dir: Path) -> dict[str, dict[str, int]]` returning `{look: {anim: frame_count}}`.
-  - TypeScript: `interface Character { id: string; label: string }`, `CHARACTERS: Record<string, Character>`, `CHARACTER_FRAMES: Record<string, CharacterFrames>`, `HERO_BUDDIES: BuddySpec[]`, and `framePath(character: string, state: AnimState, index: number): string`. All consumed by `BuddyStage` in Task 7.
+- Consumes: `AnimState`, `BuddySpec`, `CharacterFrames` from `lib/buddy.ts` (Task 3).
+- Produces: `interface Character { id: string; label: string }`, `CHARACTERS: Record<string, Character>`, `CHARACTER_FRAMES: Record<string, CharacterFrames>`, `HERO_BUDDIES: BuddySpec[]`, and `framePath(character: string, state: AnimState, index: number): string`. All consumed by `BuddyStage` in Task 7; Task 8 also references three baked frame URLs directly.
 
-- [ ] **Step 1: Write the failing test**
-
-Create `tests/test_bake_web_sprites.py`:
-
-```python
-import os
-from pathlib import Path
-
-SPRITES_DIR = Path(__file__).resolve().parent.parent / "Sprites"
-
-
-def _qt_app():
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-    from PySide6.QtWidgets import QApplication
-    return QApplication.instance() or QApplication([])
-
-
-def test_bake_writes_every_look_and_animation(tmp_path):
-    _qt_app()
-    from tools.bake_web_sprites import LOOKS, bake
-
-    counts = bake(SPRITES_DIR, tmp_path)
-
-    assert set(counts) == set(LOOKS)
-    for look in LOOKS:
-        # The body drives the timeline: 2 idle frames, 4 walk frames.
-        assert counts[look] == {"idle": 2, "walk": 4}
-        for anim, n in counts[look].items():
-            for i in range(n):
-                assert (tmp_path / look / anim / f"{i}.png").is_file()
-
-
-def test_baked_frames_are_tinted_and_opaque(tmp_path):
-    """The body is authored white; a baked frame must carry the skin tint."""
-    _qt_app()
-    from PySide6.QtGui import QImage
-    from tools.bake_web_sprites import LOOKS, bake
-
-    bake(SPRITES_DIR, tmp_path)
-
-    look = sorted(LOOKS)[0]
-    img = QImage(str(tmp_path / look / "idle" / "0.png"))
-    assert not img.isNull()
-    assert img.size().width() == 64 and img.size().height() == 64
-
-    opaque = [
-        img.pixelColor(x, y)
-        for y in range(img.height())
-        for x in range(img.width())
-        if img.pixelColor(x, y).alpha() == 255
-    ]
-    assert opaque, "baked frame had no opaque pixel"
-    # Authored white would stay (255, 255, 255); a tint must have landed.
-    assert any(
-        (c.red(), c.green(), c.blue()) != (255, 255, 255) for c in opaque
-    )
-
-
-def test_bake_is_idempotent(tmp_path):
-    """Re-baking over an existing tree replaces rather than accumulates."""
-    _qt_app()
-    from tools.bake_web_sprites import bake
-
-    first = bake(SPRITES_DIR, tmp_path)
-    stray = tmp_path / "round" / "idle" / "99.png"
-    stray.write_bytes(b"")
-    second = bake(SPRITES_DIR, tmp_path)
-
-    assert first == second
-    assert not stray.exists()
-```
-
-- [ ] **Step 2: Run the test to verify it fails**
+- [ ] **Step 1: Confirm what the art actually is**
 
 ```bash
 cd /Users/kaincorkeron/Desktop-Buddies-web-frontend
-python -m pytest tests/test_bake_web_sprites.py -v
+for d in Sprites/*/; do
+  echo "$d idle=$(ls "$d"idle | wc -l) walk=$(ls "$d"walk | wc -l)"; cat "$d"sprite.json; echo
+done
 ```
 
-Expected: FAIL with `ModuleNotFoundError: No module named 'tools.bake_web_sprites'`.
+Expected: three characters — `placeholder_blob`, `placeholder_cat`,
+`placeholder_dog` — each `idle=2 walk=4` with `{"fps": 6, "scale": 1}`. If
+what you see differs, STOP and report it rather than adapting the numbers
+below: the manifest in Step 3 hard-codes these counts and a silent
+mismatch would only surface as a missing sprite in the browser.
 
-If it instead fails with `No module named 'tools'`, add an empty
-`tools/__init__.py` and re-run.
-
-- [ ] **Step 3: Write the minimal implementation**
-
-Create `tools/bake_web_sprites.py`:
-
-```python
-"""Bake the layered sprite art into flat frames for the website.
-
-The desktop client composites and tints layers at load time (see
-Src/layers.py and Src/sprite_window.py). The website has three buddies and
-no customizer, so shipping the layer system to the browser would be a lot of
-machinery for no gain -- instead we flatten a fixed set of looks here, once,
-reusing the client's own compositor so the rules cannot drift.
-
-Run from the repository root:
-
-    python tools/bake_web_sprites.py
-
-Rerun it whenever Sprites/ changes, and commit the result.
-"""
-import os
-import shutil
-import sys
-from pathlib import Path
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
-
-from Src.appearance import Appearance                    # noqa: E402
-from Src.layers import load_manifest, resolve_layers     # noqa: E402
-from Src.sprite_window import composite_frames           # noqa: E402
-
-SPRITES_DIR = ROOT / "Sprites"
-OUT_DIR = ROOT / "desktop-buddies" / "public" / "sprites"
-ANIMS = ("idle", "walk")
-
-# One look per body shape, each a different skin from SKIN_PALETTE, so the
-# three buddies on the landing page read as three different people. Keyed by
-# the directory name the site will request.
-LOOKS = {
-    "round": Appearance(body="round", skin="#f6d5bd"),
-    "tall": Appearance(body="tall", skin="#c98d63"),
-    "slim": Appearance(body="slim", skin="#8d5524"),
-}
-
-
-def bake(sprites_dir: Path, out_dir: Path) -> dict[str, dict[str, int]]:
-    """Flatten every look into out_dir/<look>/<anim>/<n>.png.
-
-    Returns {look: {anim: frame_count}} so callers -- and the site's
-    characters.ts -- never have to guess at what landed on disk.
-    """
-    sprites_dir, out_dir = Path(sprites_dir), Path(out_dir)
-    manifest = load_manifest(sprites_dir)
-    counts: dict[str, dict[str, int]] = {}
-
-    for look, appearance in LOOKS.items():
-        layers = resolve_layers(appearance, sprites_dir, manifest)
-        counts[look] = {}
-        for anim in ANIMS:
-            frames = composite_frames(layers, anim)
-            folder = out_dir / look / anim
-            # Replace rather than merge, so a shrinking animation does not
-            # leave orphaned high-numbered frames behind.
-            if folder.exists():
-                shutil.rmtree(folder)
-            folder.mkdir(parents=True)
-            for i, frame in enumerate(frames):
-                frame.save(str(folder / f"{i}.png"))
-            counts[look][anim] = len(frames)
-
-    return counts
-
-
-def main() -> int:
-    from PySide6.QtWidgets import QApplication
-    QApplication.instance() or QApplication([])
-
-    counts = bake(SPRITES_DIR, OUT_DIR)
-    for look, anims in sorted(counts.items()):
-        detail = ", ".join(f"{a} {n}" for a, n in sorted(anims.items()))
-        print(f"wrote {look}: {detail}")
-    print(f"-> {OUT_DIR.relative_to(ROOT)}")
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
-```
-
-- [ ] **Step 4: Run the test to verify it passes**
+- [ ] **Step 2: Copy the frames into the Next app**
 
 ```bash
 cd /Users/kaincorkeron/Desktop-Buddies-web-frontend
-python -m pytest tests/test_bake_web_sprites.py -v
-```
-
-Expected: PASS — 3 tests.
-
-- [ ] **Step 5: Run the full Python suite for regressions**
-
-```bash
-cd /Users/kaincorkeron/Desktop-Buddies-web-frontend
-python -m pytest -q
-```
-
-Expected: everything passes. This task imports client modules but changes
-none of them, so any failure here is pre-existing — note it and carry on.
-
-- [ ] **Step 6: Bake the actual frames**
-
-```bash
-cd /Users/kaincorkeron/Desktop-Buddies-web-frontend
-python tools/bake_web_sprites.py
+mkdir -p desktop-buddies/public/sprites
+for c in placeholder_blob placeholder_cat placeholder_dog; do
+  for a in idle walk; do
+    mkdir -p "desktop-buddies/public/sprites/$c/$a"
+    cp Sprites/$c/$a/*.png "desktop-buddies/public/sprites/$c/$a/"
+  done
+done
 find desktop-buddies/public/sprites -name '*.png' | sort
 ```
 
-Expected output: `wrote round: idle 2, walk 4` and the same for `slim` and
-`tall`; then 18 PNG files — three looks × (2 idle + 4 walk).
+Expected: 18 files. `sprite.json` is deliberately NOT copied — the site
+records frame counts in `characters.ts` instead, and Step 4's test is what
+keeps that record honest.
 
-- [ ] **Step 7: Write the character manifest**
+- [ ] **Step 3: Write the character manifest**
 
 Create `desktop-buddies/lib/characters.ts`:
 
@@ -1269,13 +1089,12 @@ Create `desktop-buddies/lib/characters.ts`:
 import type { AnimState, BuddySpec, CharacterFrames } from "./buddy";
 
 /**
- * The looks baked by tools/bake_web_sprites.py.
+ * The sprite art copied into public/sprites by Task 5.
  *
- * Frame counts are recorded rather than discovered so the loader never
- * guesses at what exists on disk. They come straight from the tool's output
- * (the body layer drives the timeline: 2 idle, 4 walk) and `fps` is the 6
- * declared in Sprites/manifest.json. If the art changes, rerun the tool and
- * update these numbers together.
+ * Frame counts are recorded rather than discovered, so the loader never
+ * guesses at what exists on disk. They come from `Sprites/<c>/sprite.json`
+ * and the frame files themselves; `characters.test.ts` asserts this record
+ * still matches what is actually there, so the two cannot drift silently.
  */
 export interface Character {
   id: string;
@@ -1284,22 +1103,22 @@ export interface Character {
 }
 
 export const CHARACTERS: Record<string, Character> = {
-  round: { id: "round", label: "a round buddy" },
-  tall: { id: "tall", label: "a tall buddy" },
-  slim: { id: "slim", label: "a slim buddy" },
+  placeholder_blob: { id: "placeholder_blob", label: "the blob buddy" },
+  placeholder_cat: { id: "placeholder_cat", label: "the cat buddy" },
+  placeholder_dog: { id: "placeholder_dog", label: "the dog buddy" },
 };
 
 export const CHARACTER_FRAMES: Record<string, CharacterFrames> = {
-  round: { idle: 2, walk: 4, fps: 6 },
-  tall: { idle: 2, walk: 4, fps: 6 },
-  slim: { idle: 2, walk: 4, fps: 6 },
+  placeholder_blob: { idle: 2, walk: 4, fps: 6 },
+  placeholder_cat: { idle: 2, walk: 4, fps: 6 },
+  placeholder_dog: { idle: 2, walk: 4, fps: 6 },
 };
 
 /** Who wanders in the hero. Count is a tuning knob, not a constraint. */
 export const HERO_BUDDIES: BuddySpec[] = [
-  { id: "buddy-1", character: "round", x: 0.22 },
-  { id: "buddy-2", character: "tall", x: 0.5 },
-  { id: "buddy-3", character: "slim", x: 0.78 },
+  { id: "buddy-1", character: "placeholder_blob", x: 0.22 },
+  { id: "buddy-2", character: "placeholder_cat", x: 0.5 },
+  { id: "buddy-3", character: "placeholder_dog", x: 0.78 },
 ];
 
 export function framePath(
@@ -1311,39 +1130,122 @@ export function framePath(
 }
 ```
 
-- [ ] **Step 8: Document the tool**
+- [ ] **Step 4: Write the failing test**
 
-In `CLAUDE.md`, in the **Commands** block, add this line directly after the
-`make_placeholder_sprites.py` line:
+Create `desktop-buddies/lib/characters.test.ts`:
 
+```ts
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import {
+  CHARACTERS,
+  CHARACTER_FRAMES,
+  HERO_BUDDIES,
+  framePath,
+} from "./characters";
+
+const PUBLIC_SPRITES = join(import.meta.dirname, "..", "public", "sprites");
+
+describe("framePath", () => {
+  it("builds a root-relative url", () => {
+    expect(framePath("placeholder_cat", "walk", 2)).toBe(
+      "/sprites/placeholder_cat/walk/2.png",
+    );
+  });
+});
+
+describe("the character manifest", () => {
+  it("describes the same characters in both maps", () => {
+    expect(Object.keys(CHARACTER_FRAMES).sort()).toEqual(
+      Object.keys(CHARACTERS).sort(),
+    );
+  });
+
+  it("gives every hero buddy a known character and a distinct id", () => {
+    const ids = HERO_BUDDIES.map((b) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const buddy of HERO_BUDDIES) {
+      expect(CHARACTERS[buddy.character]).toBeDefined();
+      expect(CHARACTER_FRAMES[buddy.character]).toBeDefined();
+      expect(buddy.x).toBeGreaterThanOrEqual(0);
+      expect(buddy.x).toBeLessThanOrEqual(1);
+    }
+  });
+
+  // The manifest records frame counts instead of discovering them, so this
+  // is the test that catches the record and the art drifting apart.
+  it.each(Object.entries(CHARACTER_FRAMES))(
+    "matches the frames actually on disk for %s",
+    (character, frames) => {
+      for (const state of ["idle", "walk"] as const) {
+        const dir = join(PUBLIC_SPRITES, character, state);
+        expect(existsSync(dir)).toBe(true);
+        const pngs = readdirSync(dir).filter((f) => f.endsWith(".png"));
+        expect(pngs).toHaveLength(frames[state]);
+        for (let i = 0; i < frames[state]; i++) {
+          expect(pngs).toContain(`${i}.png`);
+        }
+      }
+    },
+  );
+});
 ```
-python tools/bake_web_sprites.py          # flatten Sprites/ for the website
-```
 
-- [ ] **Step 9: Verify lint and build still pass**
+This test file reads the filesystem, which `lib/` production code never
+does. That is fine and deliberate: the rule keeps `lib/`'s shipped modules
+pure so they run anywhere, and a node-environment test asserting that a
+hand-written manifest matches real files is exactly the drift guard the
+recorded counts need.
+
+- [ ] **Step 5: Run the test to verify it fails**
+
+Temporarily rename one frame so the drift guard has something to catch:
 
 ```bash
 cd /Users/kaincorkeron/Desktop-Buddies-web-frontend/desktop-buddies
-npm run lint && npm run build && npm test
+mv public/sprites/placeholder_cat/walk/3.png public/sprites/placeholder_cat/walk/3.png.bak
+npm test
 ```
 
-Expected: all three pass. `characters.ts` is not yet imported anywhere,
-which is fine — it is typed against Task 3's exports, so a mismatch in
+Expected: FAIL — the `placeholder_cat` case reports 3 PNGs where 4 were
+expected. Then restore it:
+
+```bash
+mv public/sprites/placeholder_cat/walk/3.png.bak public/sprites/placeholder_cat/walk/3.png
+```
+
+- [ ] **Step 6: Run the test to verify it passes**
+
+```bash
+cd /Users/kaincorkeron/Desktop-Buddies-web-frontend/desktop-buddies
+npm test
+```
+
+Expected: PASS — 48 tests (42 existing + 6 new).
+
+- [ ] **Step 7: Verify lint and build**
+
+```bash
+cd /Users/kaincorkeron/Desktop-Buddies-web-frontend/desktop-buddies
+npm run lint && npm run build
+```
+
+Expected: both pass. `characters.ts` is not imported by a page yet, which
+is fine — it is typed against Task 3's exports, so a mismatch in
 `BuddySpec` or `CharacterFrames` surfaces here as a type error.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 cd /Users/kaincorkeron/Desktop-Buddies-web-frontend
-git add tools/bake_web_sprites.py tests/test_bake_web_sprites.py \
-        desktop-buddies/public/sprites desktop-buddies/lib/characters.ts \
-        CLAUDE.md
+git add desktop-buddies/public/sprites desktop-buddies/lib/characters.ts \
+        desktop-buddies/lib/characters.test.ts
 git commit -m "$(cat <<'EOF'
-feat: bake layered sprites into flat web frames
+feat: sprite frames and the character manifest
 
-The spec predates the layered art system. Rather than port the compositor
-to TypeScript for three static buddies, this reuses resolve_layers and
-composite_frames to flatten a fixed set of looks into public/sprites.
+Frame counts are recorded rather than discovered, and a test asserts the
+record still matches the files on disk so the two cannot drift silently.
 
 Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_014RoHVmgdKTnC2EcTmBHqMr
@@ -1897,17 +1799,17 @@ export default function Home() {
 
         <section className="mx-auto max-w-5xl px-6 pb-16">
           <div className="grid gap-6 sm:grid-cols-3">
-            <FeatureCard sprite="/sprites/round/walk/0.png" title="They wander">
+            <FeatureCard sprite="/sprites/placeholder_blob/walk/0.png" title="They wander">
               Each buddy idles and walks along the bottom of the screen on its
               own, in a frameless always-on-top window that never steals your
               clicks.
             </FeatureCard>
-            <FeatureCard sprite="/sprites/tall/idle/0.png" title="Chat bubbles">
+            <FeatureCard sprite="/sprites/placeholder_cat/idle/0.png" title="Chat bubbles">
               Press the global hotkey or click your buddy to type; what you
               send appears as a bubble over your character on everyone&apos;s
               desktop.
             </FeatureCard>
-            <FeatureCard sprite="/sprites/slim/walk/2.png" title="Pokes">
+            <FeatureCard sprite="/sprites/placeholder_dog/walk/2.png" title="Pokes">
               Click someone else&apos;s buddy and it hops on their screen and
               on everyone else&apos;s.
             </FeatureCard>
@@ -2269,8 +2171,8 @@ the `shared/` one:
   art and copies the client's animation feel, but imports no Python, talks
   to no relay, and has no build-time dependency on the rest of the repo.
   Its animation logic lives in a pure, React-free `lib/buddy.ts` ported from
-  `Src/world.py` and `Src/poke.py`; its sprite frames are baked out of the
-  layered `Sprites/` tree by `tools/bake_web_sprites.py`.
+  `Src/world.py` and `Src/poke.py`; its sprite frames are copies of the
+  placeholder art in `Sprites/`, refreshed whenever that art changes.
 ```
 
 - [ ] **Step 2: Add the site's modules to the key module map**
@@ -2279,11 +2181,10 @@ In `CLAUDE.md`, append these rows to the **Key module map** table:
 
 ```markdown
 | `desktop-buddies/lib/buddy.ts` | `FrameCycler`, `Hop`, `Stage` — the site's pure simulation. No React, no DOM. |
-| `desktop-buddies/lib/characters.ts` | Which looks are baked, their frame counts, and who wanders in the hero. |
+| `desktop-buddies/lib/characters.ts` | Which characters the site ships, their frame counts, and who wanders in the hero. |
 | `desktop-buddies/lib/os.ts` | userAgent → platform, for the OS-labelled download button. |
 | `desktop-buddies/lib/downloads.ts` | `BUILDS` — the one place a real installer URL gets filled in. |
 | `desktop-buddies/components/BuddyStage.tsx` | The rAF loop: renders and pokes the hero's buddies. |
-| `tools/bake_web_sprites.py` | Flattens the layered art into `public/sprites/` using the client's own compositor. |
 ```
 
 - [ ] **Step 3: Add the site's commands**
@@ -2305,7 +2206,7 @@ cd desktop-buddies
 npm run lint && npm test && npm run build
 ```
 
-Expected: the Python suite passes, lint is clean, 43 Vitest tests pass, and
+Expected: the Python suite passes, lint is clean, 48 Vitest tests pass, and
 the build reports `/` and `/download` as static. Paste the actual output
 when reporting completion — do not claim it passed without it.
 
@@ -2336,6 +2237,10 @@ Carried from the spec's Open Considerations, deliberately not in this plan:
   a relay.
 - **Real installer URLs**, which are a one-line edit to `lib/downloads.ts`
   when builds exist.
-- **Real sprite art.** When it replaces the placeholders, rerun
-  `tools/bake_web_sprites.py` and update `lib/characters.ts`'s frame counts
-  in the same commit.
+- **Real sprite art, and the layered sprite system.** Both land when the
+  `pokes` branch reaches `main`. That retires the flat placeholders this
+  site copies, so `public/sprites/` and `lib/characters.ts` are refreshed
+  together at that point — and the right mechanism then is a small
+  `tools/bake_web_sprites.py` reusing the client's own `resolve_layers()`
+  and `composite_frames()`, rather than porting the layer stack to
+  TypeScript for three static buddies.
