@@ -1952,22 +1952,44 @@ Create `desktop-buddies/components/DownloadButton.tsx`:
 ```tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { BUILDS } from "@/lib/downloads";
 import { detectPlatform, type Platform } from "@/lib/os";
 
 /**
+ * The userAgent never changes for the life of a page, so there is nothing to
+ * subscribe to and the snapshot is computed once and cached. Caching is not
+ * an optimisation: useSyncExternalStore re-reads the snapshot on every render
+ * and requires a stable value.
+ */
+const subscribe = () => () => {};
+
+let cached: Platform | null | undefined;
+function clientPlatform(): Platform | null {
+  if (cached === undefined) cached = detectPlatform(navigator.userAgent);
+  return cached;
+}
+
+/** The server cannot know the platform, so it renders the neutral label. */
+const serverPlatform = (): Platform | null => null;
+
+/**
  * The OS-labelled primary CTA.
  *
- * Detection runs after hydration, so the button server-renders in its
- * neutral state: no hydration mismatch, and no flash of the wrong platform.
+ * `useSyncExternalStore` is React's API for a value that must differ between
+ * the server render and the client: getServerSnapshot supplies the neutral
+ * label during SSR and hydration, and the real platform only afterwards. That
+ * makes "no hydration mismatch, no flash of the wrong platform" structural
+ * rather than conventional -- and avoids the extra render pass (and the
+ * react-hooks/set-state-in-effect lint error) that setting state in an effect
+ * would cost.
  */
 export default function DownloadButton() {
-  const [platform, setPlatform] = useState<Platform | null>(null);
-
-  useEffect(() => {
-    setPlatform(detectPlatform(navigator.userAgent));
-  }, []);
+  const platform = useSyncExternalStore(
+    subscribe,
+    clientPlatform,
+    serverPlatform,
+  );
 
   const build = BUILDS.find((b) => b.platform === platform);
   const label = build ? `Download for ${build.label}` : "Download";
