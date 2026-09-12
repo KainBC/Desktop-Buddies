@@ -1805,6 +1805,7 @@ export default function Home() {
         </section>
 
         <section className="mx-auto max-w-5xl px-6 pb-16">
+          <h2 className="sr-only">Features</h2>
           <div className="grid gap-6 sm:grid-cols-3">
             <FeatureCard sprite="/sprites/placeholder_blob/walk/0.png" title="They wander">
               Each buddy idles and walks along the bottom of the screen on its
@@ -1816,9 +1817,10 @@ export default function Home() {
               send appears as a bubble over your character on everyone&apos;s
               desktop.
             </FeatureCard>
-            <FeatureCard sprite="/sprites/placeholder_dog/walk/2.png" title="Pokes">
-              Click someone else&apos;s buddy and it hops on their screen and
-              on everyone else&apos;s.
+            <FeatureCard sprite="/sprites/placeholder_dog/walk/2.png" title="Your own room">
+              Share a short code and your buddies appear on each other&apos;s
+              desktops. No accounts and no sign-up — just a relay you run
+              yourself.
             </FeatureCard>
           </div>
         </section>
