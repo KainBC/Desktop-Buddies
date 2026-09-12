@@ -27,6 +27,13 @@ Three pieces:
   idle/walk AI, and puppets remote sprites from network updates.
 - **`shared/`** — the JSON message schema imported by both client and relay so
   their wire formats cannot drift.
+- **`desktop-buddies/`** — the marketing site (Next 16 / React 19 / Tailwind
+  4). A separate deliverable from the desktop client: it shares the sprite
+  art and copies the client's animation feel, but imports no Python, talks
+  to no relay, and has no build-time dependency on the rest of the repo.
+  Its animation logic lives in a pure, React-free `lib/buddy.ts` ported from
+  `Src/world.py` and `Src/poke.py`; its sprite frames are copies of the
+  placeholder art in `Sprites/`, refreshed whenever that art changes.
 
 Each client is authoritative over **its own** sprite only and streams its state;
 the relay forwards it; peers interpolate. There is no authoritative host — the
@@ -46,6 +53,11 @@ room creator just "owns" the room socially.
 | `Src/Connections.py` | `NetClient`: async websocket client on a bg thread → Qt signals. |
 | `Src/Host.py` | Tracks the owned/joined room code + assigned id. |
 | `Src/app.py` | `AppController`: wires menu, net, world, and sprite windows. |
+| `desktop-buddies/lib/buddy.ts` | `FrameCycler`, `Hop`, `Stage` — the site's pure simulation. No React, no DOM. |
+| `desktop-buddies/lib/characters.ts` | Which characters the site ships, their frame counts, and who wanders in the hero. |
+| `desktop-buddies/lib/os.ts` | userAgent → platform, for the OS-labelled download button. |
+| `desktop-buddies/lib/downloads.ts` | `BUILDS` — the one place a real installer URL gets filled in. |
+| `desktop-buddies/components/BuddyStage.tsx` | The rAF loop: renders and pokes the hero's buddies. |
 
 ## Conventions
 
@@ -66,6 +78,9 @@ python -m pytest -v                          # run the test suite
 python -m relay                              # start the relay (ws://0.0.0.0:8765)
 BUDDIES_URL=ws://localhost:8765 python -m Src  # run a client
 python tools/make_placeholder_sprites.py     # regenerate placeholder art
+cd desktop-buddies && npm install            # install website deps
+cd desktop-buddies && npm run dev            # website at http://localhost:3000
+cd desktop-buddies && npm test               # website unit tests (vitest)
 ```
 
 To test locally: start the relay, then launch two clients — one creates a room,
