@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { BUILDS } from "@/lib/downloads";
+import { BUILDS, primaryBuild } from "@/lib/downloads";
 import { detectPlatform, type Platform } from "@/lib/os";
 
 /**
@@ -23,7 +23,7 @@ function clientPlatform(): Platform | null {
 const serverPlatform = (): Platform | null => null;
 
 /**
- * The OS-labelled primary CTA.
+ * The OS-labelled primary download link.
  *
  * `useSyncExternalStore`'s `getServerSnapshot` returns the neutral value
  * during SSR and hydration and `getSnapshot` returns the real one
@@ -37,22 +37,42 @@ export default function DownloadButton() {
     serverPlatform,
   );
 
-  const build = BUILDS.find((b) => b.platform === platform);
+  const build = primaryBuild(platform);
+  const href = build?.url ?? "#all-platforms";
   const label = build ? `Download for ${build.label}` : "Download";
+  const intel =
+    platform === "macos"
+      ? BUILDS.find((b) => b.platform === "macos" && b.variant === "Intel")
+      : undefined;
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <button
-        type="button"
-        disabled
-        aria-disabled="true"
-        className="cursor-not-allowed rounded-md bg-accent px-6 py-3 font-medium text-accent-contrast opacity-60"
+      <a
+        href={href}
+        className="rounded-md bg-accent px-6 py-3 font-medium text-accent-contrast hover:opacity-90"
       >
         {label}
-      </button>
+      </a>
       <span className="text-sm text-muted">
-        Packaged builds aren&apos;t ready yet — run it from source below.
+        {build ? (
+          <>
+            Unsigned app — the first launch needs one extra click.{" "}
+            <a href="#first-launch" className="underline hover:text-foreground">
+              How?
+            </a>
+          </>
+        ) : (
+          "macOS, Windows and Linux — pick yours below."
+        )}
       </span>
+      {intel?.url ? (
+        <a
+          href={intel.url}
+          className="text-sm text-muted underline hover:text-foreground"
+        >
+          Intel Mac?
+        </a>
+      ) : null}
     </div>
   );
 }

@@ -33,3 +33,9 @@ def test_workflow_builds_every_artifact():
         assert f"artifact: {name}" in workflow, name
     assert "--smoke-test" in workflow
     assert "SHA256SUMS.txt" in workflow
+
+
+def test_site_links_every_artifact():
+    downloads = (ROOT / "desktop-buddies" / "lib" / "downloads.ts").read_text()
+    for name in ARTIFACTS:
+        assert name in downloads, name

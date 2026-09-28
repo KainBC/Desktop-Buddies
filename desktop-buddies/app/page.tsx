@@ -74,8 +74,8 @@ export default function Home() {
               title="Your own room"
             >
               Share a short code and your buddies appear on each other&apos;s
-              desktops. No accounts and no sign-up — just a relay you run
-              yourself.
+              desktops. No accounts and no sign-up — just a
+              short code.
             </FeatureCard>
           </div>
         </section>

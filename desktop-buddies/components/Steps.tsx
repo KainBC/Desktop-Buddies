@@ -1,7 +1,7 @@
 const STEPS = [
   {
     title: "Install it",
-    body: "Run it from source today; packaged installers are on the way.",
+    body: "Download it for macOS, Windows or Linux.",
   },
   {
     title: "Share a room code",
