@@ -1,0 +1,4 @@
+*
+!relay/
+!shared/
+**/__pycache__
