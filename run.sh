@@ -10,6 +10,7 @@
 #   BUDDIES_URL   client -> relay URL          (default ws://localhost:8765)
 #   BUDDIES_HOST  relay bind address           (default 0.0.0.0)
 #   PYTHON        python interpreter to use     (default python3)
+#   BUDDIES_NO_UPDATE_CHECK  1 skips the GitHub update check (default here: 1)
 #
 # Notes:
 #   - Uses python3, not python (Homebrew/macOS python3 is 3.11+).
@@ -24,7 +25,7 @@ BUDDIES_URL="${BUDDIES_URL:-ws://localhost:8765}"
 BUDDIES_HOST="${BUDDIES_HOST:-0.0.0.0}"
 
 usage() {
-  sed -n '3,15p' "$0"
+  sed -n '3,16p' "$0"
   exit "${1:-0}"
 }
 
@@ -41,7 +42,8 @@ case "$cmd" in
     # The global hotkey works on macOS (native Carbon) and Linux (pynput).
     # Set BUDDIES_NO_HOTKEY=1 yourself to opt out; we no longer force it.
     echo "Starting client -> $BUDDIES_URL (hotkey disabled: ${BUDDIES_NO_HOTKEY:-0})"
-    exec env BUDDIES_URL="$BUDDIES_URL" "$PYTHON" -m Src
+    exec env BUDDIES_URL="$BUDDIES_URL" \
+      BUDDIES_NO_UPDATE_CHECK="${BUDDIES_NO_UPDATE_CHECK:-1}" "$PYTHON" -m Src
     ;;
   ""|-h|--help|help)
     usage 0

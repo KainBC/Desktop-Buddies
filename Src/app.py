@@ -18,10 +18,11 @@ from Src.hotkey import GlobalHotkey
 from Src.menu import MenuWindow
 from Src.poke import PokeCooldown
 from Src.profile import load_profile, save_profile
+from Src.resources import sprites_dir
 from Src.sprite_window import SpriteWindow
 from Src.world import World, Sprite
 
-SPRITES_DIR = Path(__file__).resolve().parent.parent / "Sprites"
+SPRITES_DIR = sprites_dir()
 FLOOR_FRACTION = 0.9          # baseline y for sprites
 SEND_INTERVAL = 0.1           # seconds between own-state broadcasts
 
