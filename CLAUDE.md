@@ -60,11 +60,33 @@ room creator just "owns" the room socially.
 | `Src/Connections.py` | `NetClient`: async websocket client on a bg thread → Qt signals. |
 | `Src/Host.py` | Tracks the owned/joined room code + assigned id. |
 | `Src/app.py` | `AppController`: wires menu, net, world, and sprite windows. |
+| `Src/version.py` | `VERSION` — the single source of truth; CI refuses a tag that doesn't match. |
+| `Src/resources.py` | `sprites_dir()` — finds `Sprites/` in a checkout or a PyInstaller bundle. |
+| `Src/updates.py` | Pure update-check logic (`parse_version`, `is_newer`) + GitHub/site URLs. |
+| `Src/update_checker.py` | `UpdateChecker`: one async GET to GitHub Releases; silent on failure. |
+| `Src/smoke.py` | `--smoke-test`: headless self-check CI runs against each packaged build. |
+| `packaging/` | PyInstaller spec, Inno Setup script, AppImage files, app icon. |
 | `desktop-buddies/lib/buddy.ts` | `FrameCycler`, `Hop`, `Stage` — the site's pure simulation. No React, no DOM. |
 | `desktop-buddies/lib/characters.ts` | Which characters the site ships, their frame counts, and who wanders in the hero. |
 | `desktop-buddies/lib/os.ts` | userAgent → platform, for the OS-labelled download button. |
-| `desktop-buddies/lib/downloads.ts` | `BUILDS` — the one place a real installer URL gets filled in. |
+| `desktop-buddies/lib/downloads.ts` | `BUILDS` — installer URLs (`releases/latest/download`) + first-launch steps. |
 | `desktop-buddies/components/BuddyStage.tsx` | The rAF loop: renders and pokes the hero's buddies. |
+
+## Release
+
+- **Cut a release:** bump `VERSION` in `Src/version.py` (and `version` in
+  `pyproject.toml` — a test checks they match), merge to `main`, then
+  `git tag vX.Y.Z && git push origin vX.Y.Z`. `.github/workflows/release.yml`
+  tests, builds four unsigned installers, smoke-tests each binary, and
+  publishes a GitHub Release marked latest. The site's download links follow
+  `releases/latest/download/…`, so the site needs no change.
+- **Artifact names are a contract** between the workflow, `packaging/`, and
+  `desktop-buddies/lib/downloads.ts`; `tests/test_packaging.py` and
+  `downloads.test.ts` fail if they drift.
+- **Relay:** runs on Fly.io as exactly one machine (`fly.toml`); rooms are in
+  memory, so a deploy drops every room. Deploy deliberately with
+  `fly deploy --ha=false`; watch with `fly logs`.
+- **Site:** Vercel builds `desktop-buddies/` from `main`; PRs get previews.
 
 ## Conventions
 
@@ -101,7 +123,9 @@ room creator just "owns" the room socially.
 python -m pip install -r requirements.txt   # install deps
 python -m pytest -v                          # run the test suite
 python -m relay                              # start the relay (ws://0.0.0.0:8765)
-BUDDIES_URL=ws://localhost:8765 python -m Src  # run a client
+BUDDIES_URL=ws://localhost:8765 python -m Src  # run a client (default: hosted relay)
+python -m Src --smoke-test                   # headless self-check
+pyinstaller --noconfirm --clean packaging/buddies.spec  # local build (needs pyinstaller + pillow)
 python tools/make_placeholder_sprites.py     # regenerate placeholder art
 cd desktop-buddies && npm install            # install website deps
 cd desktop-buddies && npm run dev            # website at http://localhost:3000
