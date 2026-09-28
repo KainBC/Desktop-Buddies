@@ -20,6 +20,7 @@ from Src.poke import PokeCooldown
 from Src.profile import load_profile, save_profile
 from Src.resources import sprites_dir
 from Src.sprite_window import SpriteWindow
+from Src.update_checker import UpdateChecker
 from Src.world import World, Sprite
 
 SPRITES_DIR = sprites_dir()
@@ -78,6 +79,11 @@ class AppController:
 
         self.timer = QTimer()
         self.timer.timeout.connect(self._tick)
+
+        self.updates: UpdateChecker | None = None
+        if os.environ.get("BUDDIES_NO_UPDATE_CHECK") != "1":
+            self.updates = UpdateChecker()
+            self.updates.latest_found.connect(self.menu.show_update)
 
     # ---- menu actions ----
     def _on_create(self, name, appearance):
@@ -251,4 +257,6 @@ class AppController:
 
     def run(self) -> int:
         self.menu.show()
+        if self.updates is not None:
+            self.updates.start()   # async; never delays create/join
         return self.app.exec()

@@ -68,3 +68,38 @@ def test_join_requires_a_code():
     finally:
         w.close()
         w.deleteLater()
+
+
+def test_menu_shows_the_running_version():
+    _qt_app()
+    from PySide6.QtWidgets import QLabel
+    from Src.menu import MenuWindow
+    from Src.version import VERSION
+
+    w = MenuWindow(SPRITES_DIR)
+    try:
+        texts = [label.text() for label in w.findChildren(QLabel)]
+        assert f"v{VERSION}" in texts
+    finally:
+        w.close()
+        w.deleteLater()
+
+
+def test_update_notice_only_for_a_newer_release():
+    _qt_app()
+    from Src.menu import MenuWindow
+    from Src.updates import DOWNLOAD_PAGE
+
+    w = MenuWindow(SPRITES_DIR)
+    try:
+        assert w.update_notice() == ""
+        for tag in ("v1.0.0", "v0.9.0", "garbage", "v9.9.9-beta"):
+            w.show_update(tag)
+            assert w.update_notice() == "", tag
+        w.show_update("v9.10.0")
+        notice = w.update_notice()
+        assert "v9.10.0" in notice
+        assert DOWNLOAD_PAGE in notice
+    finally:
+        w.close()
+        w.deleteLater()
