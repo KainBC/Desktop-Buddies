@@ -3,8 +3,8 @@ import pytest
 import websockets
 from websockets.exceptions import ConnectionClosedError
 
-from relay.room import Registry
-from relay.server import make_handler
+from relay.room import Registry, ROOM_FULL, ROOM_NOT_FOUND
+from relay.server import MAX_FRAME, make_handler, start_server
 from shared import messages as m
 
 
@@ -14,10 +14,19 @@ async def _recv(ws):
 
 @pytest.fixture
 async def server():
-    registry = Registry()
-    async with websockets.serve(make_handler(registry), "localhost", 0) as srv:
-        port = srv.sockets[0].getsockname()[1]
-        yield port
+    srv = await start_server("localhost", 0)
+    port = srv.sockets[0].getsockname()[1]
+    yield port
+    srv.close()
+    await srv.wait_closed()
+
+
+@pytest.fixture
+async def tiny_server():
+    srv = await start_server("localhost", 0, Registry(max_members=1))
+    yield srv.sockets[0].getsockname()[1]
+    srv.close()
+    await srv.wait_closed()
 
 
 async def test_create_join_and_relay(server):
@@ -46,7 +55,8 @@ async def test_unknown_code_errors(server):
     url = f"ws://localhost:{server}"
     async with websockets.connect(url) as guest:
         await guest.send(m.encode(m.JOIN_ROOM, code="NOPE-00", name="x", appearance={"body": "round", "skin": "#e8b48c"}))
-        assert (await _recv(guest))["type"] == m.ERROR
+        reply = await _recv(guest)
+        assert reply == {"type": m.ERROR, "reason": ROOM_NOT_FOUND}
 
 
 async def test_disconnect_sends_member_left(server):
@@ -117,3 +127,43 @@ async def test_abrupt_disconnect_cleans_up_without_raising():
     ws = VanishingSocket()
     await handler(ws)                       # must not raise
     assert registry.rooms == {}             # room torn down on the way out
+
+
+async def test_full_room_gets_room_is_full(tiny_server):
+    url = f"ws://localhost:{tiny_server}"
+    async with websockets.connect(url) as host, websockets.connect(url) as guest:
+        await host.send(m.encode(m.CREATE_ROOM, name="A", appearance={}))
+        code = (await _recv(host))["code"]
+        await guest.send(m.encode(m.JOIN_ROOM, code=code, name="B",
+                                  appearance={}))
+        assert await _recv(guest) == {"type": m.ERROR, "reason": ROOM_FULL}
+
+
+async def test_oversized_frame_closes_connection(server):
+    async with websockets.connect(f"ws://localhost:{server}",
+                                  max_size=None) as ws:
+        await ws.send("x" * (MAX_FRAME + 1))
+        with pytest.raises(ConnectionClosedError):
+            await asyncio.wait_for(ws.recv(), timeout=2)
+        assert ws.close_code == 1009       # "message too big"
+
+
+async def test_logs_codes_but_never_names_or_chat(server, caplog):
+    caplog.set_level("INFO", logger="relay")
+    url = f"ws://localhost:{server}"
+    async with websockets.connect(url) as host, websockets.connect(url) as guest:
+        await host.send(m.encode(m.CREATE_ROOM, name="SecretName",
+                                 appearance={}))
+        created = await _recv(host)
+        await guest.send(m.encode(m.JOIN_ROOM, code=created["code"],
+                                  name="OtherSecret", appearance={}))
+        await _recv(guest)
+        await _recv(host)
+        await host.send(m.encode(m.CHAT, id=created["your_id"],
+                                 text="private words"))
+        await _recv(guest)
+
+    await asyncio.sleep(0.1)     # let the handlers' finally-blocks log
+    assert created["code"] in caplog.text
+    for secret in ("SecretName", "OtherSecret", "private words"):
+        assert secret not in caplog.text
