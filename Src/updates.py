@@ -24,7 +24,7 @@ RELEASES_API = \
     "https://api.github.com/repos/KainBC/Desktop-Buddies/releases/latest"
 # Where "Download" in the update notice goes. The site picks the right
 # installer for the OS and repeats the unsigned-app instructions.
-DOWNLOAD_PAGE = "https://github.com/KainBC/Desktop-Buddies/releases/latest"
+DOWNLOAD_PAGE = "https://desktop-buddies.vercel.app/download"
 
 
 def is_newer(latest, current) -> bool:
