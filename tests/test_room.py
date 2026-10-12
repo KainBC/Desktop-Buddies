@@ -1,5 +1,6 @@
 import pytest
-from relay.room import Registry, generate_code
+from relay.room import (Registry, generate_code, JoinError, ROOM_FULL,
+                        ROOM_NOT_FOUND, MAX_NAME)
 from shared import messages as m
 
 
@@ -45,11 +46,13 @@ async def test_join_notifies_both_sides():
                                                         "skin": "#a4673f"}}
 
 
-async def test_join_unknown_code_returns_none():
+async def test_join_unknown_code_raises_not_found():
     reg = Registry()
-    assert await reg.join_room("NOPE-00", "Sam", {"body": "tall",
-                                                  "skin": "#a4673f"},
-                               FakeConn().send) is None
+    with pytest.raises(JoinError) as err:
+        await reg.join_room("NOPE-00", "Sam", {"body": "tall",
+                                              "skin": "#a4673f"},
+                            FakeConn().send)
+    assert err.value.reason == ROOM_NOT_FOUND
 
 
 async def test_relay_fans_out_to_others_only():
@@ -81,3 +84,48 @@ async def test_leave_notifies_and_cleans_up():
 
     await reg.leave(code, a_id)         # room now empty
     assert code not in reg.rooms
+
+
+async def test_join_full_room_raises_full_and_sends_nothing():
+    reg = Registry(max_members=2)
+    a, b, c = FakeConn(), FakeConn(), FakeConn()
+    code, _ = await reg.create_room("A", {}, a.send)
+    await reg.join_room(code, "B", {}, b.send)
+    sent_before = (len(a.sent), len(b.sent))
+
+    with pytest.raises(JoinError) as err:
+        await reg.join_room(code, "C", {}, c.send)
+
+    assert err.value.reason == ROOM_FULL
+    assert c.sent == []
+    assert (len(a.sent), len(b.sent)) == sent_before
+    assert len(reg.rooms[code]["members"]) == 2
+
+
+async def test_default_room_cap_is_sixteen():
+    reg = Registry()
+    code, _ = await reg.create_room("host", {}, FakeConn().send)
+    for i in range(15):
+        await reg.join_room(code, f"p{i}", {}, FakeConn().send)
+    with pytest.raises(JoinError):
+        await reg.join_room(code, "one-too-many", {}, FakeConn().send)
+
+
+async def test_names_are_cleaned_before_storing_and_forwarding():
+    reg = Registry()
+    a, b = FakeConn(), FakeConn()
+    code, a_id = await reg.create_room("  " + "x" * 500, {}, a.send)
+    b_id = await reg.join_room(code, 12345, {}, b.send)
+
+    assert reg.rooms[code]["members"][a_id]["name"] == "x" * MAX_NAME
+    assert a.sent[-1]["name"] == ""          # MEMBER_JOINED for the non-str name
+    assert b.sent[0]["members"][0]["name"] == "x" * MAX_NAME
+    assert reg.rooms[code]["members"][b_id]["name"] == ""
+
+
+async def test_last_leave_logs_room_emptied(caplog):
+    caplog.set_level("INFO", logger="relay")
+    reg = Registry()
+    code, mid = await reg.create_room("A", {}, FakeConn().send)
+    await reg.leave(code, mid)
+    assert f"room {code} emptied" in caplog.text

@@ -1,9 +1,11 @@
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel)
 
 from Src.appearance import Appearance
 from Src.customizer import CustomizerPanel
+from Src.updates import DOWNLOAD_PAGE, is_newer, parse_version
+from Src.version import VERSION
 
 
 def validate_name(name: str) -> bool:
@@ -47,6 +49,17 @@ class MenuWindow(QWidget):
         self._status = QLabel("")
         layout.addWidget(self._status)
 
+        self._version = QLabel(f"v{VERSION}")
+        self._version.setStyleSheet("color: gray; font-size: 11px;")
+        layout.addWidget(self._version)
+
+        self._update = QLabel("")
+        self._update.setTextFormat(Qt.RichText)
+        self._update.setOpenExternalLinks(True)
+        self._update.setStyleSheet("color: gray; font-size: 11px;")
+        self._update.hide()
+        layout.addWidget(self._update)
+
     def name(self) -> str:
         return self._name.text().strip()
 
@@ -74,3 +87,19 @@ class MenuWindow(QWidget):
 
     def show_error(self, msg: str) -> None:
         self._status.setText(msg)
+
+    def show_update(self, tag: str) -> None:
+        """Show the update line if `tag` is a newer release than this build.
+
+        The tag comes off the network, so only its parsed numbers are ever
+        rendered -- never the raw string -- into this rich-text label.
+        """
+        if not is_newer(tag, VERSION):
+            return
+        shown = "v" + ".".join(str(n) for n in parse_version(tag))
+        self._update.setText(
+            f'Update available: {shown} — <a href="{DOWNLOAD_PAGE}">Download</a>')
+        self._update.show()
+
+    def update_notice(self) -> str:
+        return "" if self._update.isHidden() else self._update.text()

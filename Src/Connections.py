@@ -1,10 +1,24 @@
 import asyncio
+import ssl
 import threading
 
+import certifi
 import websockets
 from PySide6.QtCore import QObject, Signal
 
 from shared import messages as m
+
+
+def ssl_context_for(url: str) -> ssl.SSLContext | None:
+    """TLS settings for a relay URL.
+
+    A frozen app can't rely on the system CA store: the OpenSSL bundled with
+    python.org/CI Pythons looks in its own build prefix, which doesn't exist
+    on users' machines. certifi ships its CA bundle inside the app.
+    """
+    if not url.startswith("wss://"):
+        return None
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 class NetClient(QObject):
@@ -77,7 +91,7 @@ class NetClient(QObject):
             self.disconnected.emit()
 
     async def _session(self, url: str) -> None:
-        async with websockets.connect(url) as ws:
+        async with websockets.connect(url, ssl=ssl_context_for(url)) as ws:
             self._ws = ws
             self.connected.emit()
             await ws.send(self._hello)

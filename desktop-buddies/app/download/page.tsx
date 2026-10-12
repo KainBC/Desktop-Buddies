@@ -3,14 +3,13 @@ import Link from "next/link";
 import DownloadButton from "@/components/DownloadButton";
 import Footer from "@/components/Footer";
 import WindowFrame from "@/components/WindowFrame";
-import { BUILDS } from "@/lib/downloads";
+import { BUILDS, CHECKSUMS_URL, buildName, primaryBuild } from "@/lib/downloads";
 import { GITHUB_URL } from "@/lib/links";
 
 export const metadata: Metadata = {
   title: "Download — Desktop Buddies",
   description:
-    "Get Desktop Buddies. Packaged installers are coming; running from " +
-    "source works today.",
+    "Download Desktop Buddies for macOS, Windows or Linux.",
 };
 
 const SETUP = `git clone ${GITHUB_URL}.git
@@ -31,16 +30,16 @@ export default function Download() {
           </div>
         </WindowFrame>
 
-        <section className="pt-12">
+        <section id="all-platforms" className="pt-12">
           <h2 className="mb-4 text-xl font-semibold">All platforms</h2>
           <ul className="divide-y divide-border rounded-lg border border-border">
             {BUILDS.map((build) => (
               <li
-                key={build.platform}
+                key={buildName(build)}
                 className="flex items-center justify-between gap-4 px-5 py-4"
               >
                 <span>
-                  <span className="font-medium">{build.label}</span>{" "}
+                  <span className="font-medium">{buildName(build)}</span>{" "}
                   <span className="text-sm text-muted">{build.file}</span>
                 </span>
                 {build.url ? (
@@ -58,23 +57,55 @@ export default function Download() {
           </ul>
         </section>
 
+        <section id="first-launch" className="pt-12">
+          <h2 className="mb-4 text-xl font-semibold">First launch</h2>
+          <p className="mb-6 text-muted">
+            The apps aren&apos;t code-signed yet — signing certificates cost
+            money, and the source is public on GitHub — so your OS asks you to
+            confirm the first time. After that it opens like any other app.
+          </p>
+          <div className="grid gap-6 sm:grid-cols-3">
+            {(["macos", "windows", "linux"] as const).map((platform) => {
+              const build = primaryBuild(platform)!;
+              return (
+                <div key={platform}>
+                  <h3 className="mb-2 font-semibold">{build.label}</h3>
+                  <ol className="list-decimal space-y-1 pl-5 text-sm text-muted">
+                    {build.steps.map((step) => (
+                      <li key={step}>{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-6 text-sm text-muted">
+            Want to verify your download?{" "}
+            <a href={CHECKSUMS_URL} className="underline hover:text-foreground">
+              SHA-256 checksums
+            </a>
+            .
+          </p>
+        </section>
+
         <section className="pt-12">
           <h2 className="mb-4 text-xl font-semibold">Run from source</h2>
           <p className="mb-4 text-muted">
-            This is the path that works today. You need Python 3.11 or newer.
+            Prefer to run the Python directly? You need Python 3.11 or newer.
           </p>
           <pre className="overflow-x-auto rounded-lg border border-border bg-surface p-5 font-mono text-sm">
             <code>{SETUP}</code>
           </pre>
           <p className="mt-4 text-muted">
-            The client talks to a relay you host yourself. Point it at one
-            with <code className="font-mono text-sm">BUDDIES_URL</code>, for
-            example{" "}
+            It connects to the hosted relay by default. To self-host, start a
+            relay with{" "}
+            <code className="font-mono text-sm">./run.sh relay</code> and point
+            clients at it with{" "}
+            <code className="font-mono text-sm">BUDDIES_URL</code>, for example{" "}
             <code className="font-mono text-sm">
               BUDDIES_URL=ws://localhost:8765 ./run.sh client
             </code>
-            , and start the relay with{" "}
-            <code className="font-mono text-sm">./run.sh relay</code>.
+            .
           </p>
         </section>
 
